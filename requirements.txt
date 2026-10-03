@@ -1,0 +1,15 @@
+# Production Requirements for AI Venture Co-Founder (Python 3.12 / 2026 Stable)
+# Verified compatible with Streamlit Community Cloud and GitHub deployments
+
+streamlit>=1.40.0,<2.0.0
+crewai>=1.10.0,<2.0.0
+groq>=0.11.0,<2.0.0
+litellm>=1.40.0,<2.0.0
+faiss-cpu>=1.9.0,<2.0.0
+pandas>=2.2.0,<4.0.0
+plotly>=5.24.0,<8.0.0
+reportlab>=4.2.0,<6.0.0
+numpy>=1.26.0,<3.0.0
+pydantic>=2.9.0,<3.0.0
+python-dotenv>=1.0.1,<2.0.0
+requests>=2.32.0,<3.0.0
