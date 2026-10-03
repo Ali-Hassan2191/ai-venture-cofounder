@@ -7,6 +7,7 @@ from typing import Optional
 import streamlit as st
 from database.models import Startup
 from services.analysis_service import AnalysisService
+from ui.styles import get_width_kwargs
 
 
 def render_chat_view(startup: Optional[Startup]):
@@ -53,7 +54,7 @@ def render_chat_view(startup: Optional[Startup]):
         ]
 
         for q in quick_questions:
-            if st.button(f"💬 {q}", use_container_width=True, key=f"quick_{q[:15]}"):
+            if st.button(f"💬 {q}", **get_width_kwargs(True), key=f"quick_{q[:15]}"):
                 with st.spinner("AI Co-Founder is thinking..."):
                     AnalysisService.ask_ai_cofounder(startup.id, q)
                 st.rerun()
@@ -123,7 +124,7 @@ def render_chat_view(startup: Optional[Startup]):
                 placeholder="Ask about market size, pricing models, tech choices, or execution roadblocks...",
                 label_visibility="collapsed",
             )
-            submit_chat = st.form_submit_button("Send to Co-Founder →", type="primary", use_container_width=True)
+            submit_chat = st.form_submit_button("Send to Co-Founder →", type="primary", **get_width_kwargs(True))
 
         if submit_chat and user_msg.strip():
             with st.spinner("AI Co-Founder is analyzing startup context..."):

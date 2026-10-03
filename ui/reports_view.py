@@ -6,7 +6,7 @@ from typing import Optional
 import streamlit as st
 from database.models import Startup, StartupAnalysis, DynamicRoadmap
 from services.report_service import ReportService
-from ui.styles import render_html
+from ui.styles import render_html, get_width_kwargs
 
 
 def render_reports_view(
@@ -32,6 +32,10 @@ def render_reports_view(
 
     if not startup:
         st.info("Please select or create a startup venture to generate executive reports.")
+        return
+
+    if not analysis:
+        st.info(f"Venture analysis for '{startup.name}' has not been completed yet. Please run startup evaluation to generate the official executive dossier.")
         return
 
     col1, col2 = st.columns([1.8, 1.2], gap="large")
@@ -68,7 +72,7 @@ def render_reports_view(
             file_name=f"{startup.name.lower().replace(' ', '_')}_venture_blueprint.pdf",
             mime="application/pdf",
             type="primary",
-            use_container_width=True,
+            **get_width_kwargs(True),
         )
 
     with col2:
@@ -80,8 +84,8 @@ def render_reports_view(
                     <b>Format:</b> Adobe PDF (ReportLab 5.0)<br>
                     <b>Document Version:</b> 1.0 (Production)<br>
                     <b>Target Market:</b> {startup.target_market}<br>
-                    <b>Calibrated Roadmap:</b> {roadmap.total_duration_days if roadmap else 45} Days<br>
-                    <b>Feasibility Score:</b> {analysis.overall_score if analysis else 76}/100<br>
+                    <b>Calibrated Roadmap:</b> {roadmap.total_duration_days if roadmap else 'Calibrated'} Days<br>
+                    <b>Feasibility Score:</b> {analysis.overall_score}/100<br>
                     <b>Security:</b> Confidential Venture Analysis
                 </div>
             </div>

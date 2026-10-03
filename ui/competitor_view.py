@@ -1,16 +1,21 @@
 """
 Competitor Analysis Screen.
 Displays competitor landscape, product tear-downs, pricing models,
-strengths, weaknesses, defensible USP, and positioning matrix.
+strengths, weaknesses, defensible USP, and dynamic positioning matrix.
 """
 from typing import Optional, Dict, Any, List
 import streamlit as st
 import plotly.express as px
 import pandas as pd
-from database.models import Startup, AgentResult
+from database.models import Startup, AgentResult, StartupAnalysis
+from ui.styles import get_width_kwargs
 
 
-def render_competitor_view(startup: Optional[Startup], agent_results: Dict[str, AgentResult]):
+def render_competitor_view(
+    startup: Optional[Startup],
+    analysis: Optional[StartupAnalysis],
+    agent_results: Dict[str, AgentResult],
+):
     """
     Renders the competitor intelligence screen.
     """
@@ -33,19 +38,23 @@ def render_competitor_view(startup: Optional[Startup], agent_results: Dict[str, 
         return
 
     comp_res = agent_results.get("competitor_analysis")
+    if not comp_res and not analysis:
+        st.info(f"Competitor analysis for '{startup.name}' has not been generated yet. Run startup evaluation to view competitive intelligence.")
+        return
+
     data: Dict[str, Any] = comp_res.structured_output if (comp_res and comp_res.structured_output) else {}
 
-    usp = data.get("recommended_usp", "Hyper-targeted localized pricing with batch delivery efficiency.")
-    market_gaps = data.get("market_gaps") or [
-        "No existing player offers campus-specific meal plan subscriptions.",
-        "Incumbent platforms charge unaffordable delivery and convenience fees.",
-        "Long delivery delays due to unstructured individual courier dispatches.",
-    ]
+    usp = (analysis.usp if analysis and analysis.usp else None) or data.get("recommended_usp") or f"Localized, capital-efficient platform tailored specifically for {startup.target_customer}."
+    market_gaps = data.get("market_gaps") or (analysis.key_advantages if analysis and analysis.key_advantages else [
+        f"Lack of dedicated, affordable tooling for {startup.target_customer}",
+        f"High pricing and rigid vendor lock-in from legacy alternatives in {startup.country}",
+        f"Unoptimized user workflows causing high friction and customer churn",
+    ])
 
     # USP Banner Card
     st.markdown(
         f"""
-        <div class="welcome-hero" style="border-left: 4px solid #6366F1;">
+        <div class="welcome-hero" style="border-left: 4px solid #6366F1; margin-bottom: 18px;">
             <div style="font-size: 0.8rem; color: #6366F1; font-weight: 700; text-transform: uppercase;">
                 Defensible Unique Selling Proposition (USP)
             </div>
@@ -61,22 +70,22 @@ def render_competitor_view(startup: Optional[Startup], agent_results: Dict[str, 
     st.markdown("### 👥 Competitor Dissection")
     raw_competitors = data.get("competitors") or [
         {
-            "name": "Incumbent City Delivery Apps",
-            "type": "Direct Legacy Player",
-            "products_services": "Broad on-demand restaurant delivery",
-            "pricing": "$3.99 - $5.99 delivery fee + 15% service markup",
-            "strengths": ["Massive restaurant selection", "High brand recognition"],
-            "weaknesses": ["Prohibitive pricing for students", "No dorm drop-off coordination"],
-            "target_customers": "General urban affluent consumers",
+            "name": f"Legacy Incumbents in {startup.country}",
+            "type": "Direct Market Player",
+            "products_services": f"Generic enterprise and retail solutions for {startup.target_market}",
+            "pricing": "High enterprise pricing with setup markups",
+            "strengths": ["Brand recognition", "Established capital reserves"],
+            "weaknesses": ["Slow feature releases", "Expensive pricing for early users"],
+            "target_customers": f"General consumers in {startup.country}",
         },
         {
-            "name": "On-Campus Dining Halls",
+            "name": "Informal / In-House Workarounds",
             "type": "Indirect Alternative",
-            "products_services": "Institutional meal cards and buffet plans",
-            "pricing": "High fixed semester fee (~$2,500/semester)",
-            "strengths": ["Immediate proximity", "Pre-paid by tuition"],
-            "weaknesses": ["Repetitive menu options", "Limited operating hours"],
-            "target_customers": "On-campus freshman dormitory students",
+            "products_services": "Manual spreadsheets, fragmented chat groups, or basic legacy tools",
+            "pricing": "Low financial cost but high time drain",
+            "strengths": ["Zero upfront investment", "Familiarity"],
+            "weaknesses": ["Error-prone", "Cannot scale or automate workflows"],
+            "target_customers": f"Budget-constrained {startup.target_customer}",
         },
     ]
 
@@ -117,30 +126,36 @@ def render_competitor_view(startup: Optional[Startup], agent_results: Dict[str, 
             unsafe_allow_html=True,
         )
 
-    # 3. Market Positioning Matrix (Plotly Scatter Chart)
+    # 3. Dynamic Market Positioning Matrix (Plotly Scatter Chart)
     st.markdown("<div style='height: 14px;'></div>", unsafe_allow_html=True)
     st.markdown("### 🎯 Strategic Positioning Map")
 
-    pos_df = pd.DataFrame([
-        {"Entity": f"{startup.name} (Us)", "Affordability (1-10)": 9.2, "Hyper-local Focus (1-10)": 9.5, "Size": 25, "Color": "#10B981"},
-        {"Entity": "Legacy Delivery Giants", "Affordability (1-10)": 3.5, "Hyper-local Focus (1-10)": 3.0, "Size": 20, "Color": "#EF4444"},
-        {"Entity": "Campus Dining Halls", "Affordability (1-10)": 5.0, "Hyper-local Focus (1-10)": 8.0, "Size": 18, "Color": "#3B82F6"},
-        {"Entity": "Independent Courier Services", "Affordability (1-10)": 6.5, "Hyper-local Focus (1-10)": 4.5, "Size": 15, "Color": "#F59E0B"},
-    ])
+    pos_rows = [
+        {"Entity": f"{startup.name} (Our Venture)", "Value Advantage (1-10)": 9.2, "Product Differentiation (1-10)": 9.4, "Size": 25, "Color": "#10B981"}
+    ]
+
+    palette = ["#EF4444", "#3B82F6", "#F59E0B", "#8B5CF6"]
+    for idx, c in enumerate(raw_competitors[:3]):
+        c_name = c.get("name", f"Alternative {idx+1}")
+        pos_rows.append({
+            "Entity": c_name[:24],
+            "Value Advantage (1-10)": max(2.5, 7.0 - (idx * 1.5)),
+            "Product Differentiation (1-10)": max(3.0, 6.5 - (idx * 1.2)),
+            "Size": 18,
+            "Color": palette[idx % len(palette)],
+        })
+
+    pos_df = pd.DataFrame(pos_rows)
+    color_map = {row["Entity"]: row["Color"] for row in pos_rows}
 
     fig = px.scatter(
         pos_df,
-        x="Affordability (1-10)",
-        y="Hyper-local Focus (1-10)",
+        x="Value Advantage (1-10)",
+        y="Product Differentiation (1-10)",
         text="Entity",
         size="Size",
         color="Entity",
-        color_discrete_map={
-            f"{startup.name} (Us)": "#10B981",
-            "Legacy Delivery Giants": "#EF4444",
-            "Campus Dining Halls": "#3B82F6",
-            "Independent Courier Services": "#F59E0B",
-        },
+        color_discrete_map=color_map,
     )
     fig.update_traces(textposition="top center", textfont=dict(color="#F8FAFC", size=11))
     fig.update_layout(
@@ -149,10 +164,10 @@ def render_competitor_view(startup: Optional[Startup], agent_results: Dict[str, 
         showlegend=False,
         height=320,
         xaxis=dict(range=[1, 11], gridcolor="#1E293B", color="#94A3B8", title="Price Affordability & Economics →"),
-        yaxis=dict(range=[1, 11], gridcolor="#1E293B", color="#94A3B8", title="Campus / Local Customization →"),
+        yaxis=dict(range=[1, 11], gridcolor="#1E293B", color="#94A3B8", title="Market Specialization & Moat →"),
         margin=dict(l=20, r=20, t=20, b=20),
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, **get_width_kwargs(True))
 
     # 4. Exploitable Market Gaps
     st.markdown("### 🚀 Critical Market Gaps")

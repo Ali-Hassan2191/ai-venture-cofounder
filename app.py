@@ -54,6 +54,9 @@ def seed_default_venture_if_empty():
     try:
         with get_db() as conn:
             conn.execute("UPDATE startups SET founder_name = 'Ali Hassan' WHERE founder_name = 'Ahmed Khan' OR founder_name IS NULL;")
+            # Migrate any legacy seed that was stuck at Day 4 to Day 1
+            conn.execute("UPDATE roadmaps SET current_day = 1, progress_percent = 0.0 WHERE current_day = 4 AND startup_id IN (SELECT id FROM startups WHERE name = 'CampusBites AI');")
+            conn.execute("UPDATE roadmap_tasks SET is_completed = 0 WHERE roadmap_id IN (SELECT id FROM roadmaps WHERE startup_id IN (SELECT id FROM startups WHERE name = 'CampusBites AI'));")
     except Exception:
         pass
 
@@ -145,10 +148,10 @@ def seed_default_venture_if_empty():
 
     # Seed dynamic 45-day roadmap (Not fixed 30 days)
     dynamic_tasks = [
-        RoadmapTask(0, 1, "Validation Phase", "Define customer interview script & student personas", is_completed=True),
-        RoadmapTask(0, 2, "Validation Phase", "Survey 50 students on delivery fee pain thresholds", is_completed=True),
-        RoadmapTask(0, 3, "Validation Phase", "Interview 5 local restaurant managers on commission openness", is_completed=True),
-        RoadmapTask(0, 4, "Validation Phase", "Analyze user interview results & fee sensitivity", is_completed=True),
+        RoadmapTask(0, 1, "Validation Phase", "Define customer interview script & student personas", is_completed=False),
+        RoadmapTask(0, 2, "Validation Phase", "Survey 50 students on delivery fee pain thresholds", is_completed=False),
+        RoadmapTask(0, 3, "Validation Phase", "Interview 5 local restaurant managers on commission openness", is_completed=False),
+        RoadmapTask(0, 4, "Validation Phase", "Analyze user interview results & fee sensitivity", is_completed=False),
         RoadmapTask(0, 5, "Validation Phase", "Pricing Validation - Test different student pricing models with 10 users", is_completed=False, milestone_tag="Pricing Gate"),
         RoadmapTask(0, 10, "Validation Phase", "Formalize Customer Validation Sign-off", is_completed=False, milestone_tag="Validation Milestone"),
         RoadmapTask(0, 15, "Core Build Phase", "Setup Database Schema & Service Architecture", is_completed=False),
@@ -160,9 +163,9 @@ def seed_default_venture_if_empty():
     roadmap = DynamicRoadmap(
         startup_id=s_id,
         total_duration_days=45,
-        current_day=4,
+        current_day=1,
         current_phase="Validation Phase",
-        progress_percent=40.0,
+        progress_percent=0.0,
         milestones=[
             {"day": 5, "title": "Pricing Model Sign-off"},
             {"day": 10, "title": "Customer Problem Validation"},
@@ -254,15 +257,15 @@ def main():
     elif current_page == "AI Agents":
         render_agents_view(active_startup, agent_results)
     elif current_page == "Market Analysis":
-        render_market_view(active_startup, agent_results)
+        render_market_view(active_startup, analysis, agent_results)
     elif current_page == "Competitors":
-        render_competitor_view(active_startup, agent_results)
+        render_competitor_view(active_startup, analysis, agent_results)
     elif current_page == "Financial Model":
-        render_finance_view(active_startup, agent_results)
+        render_finance_view(active_startup, analysis, agent_results)
     elif current_page == "Blueprint":
         render_blueprint_view(active_startup, analysis, roadmap)
     elif current_page == "Execution Plan":
-        render_execution_view(active_startup, roadmap)
+        render_execution_view(active_startup, roadmap, analysis)
     elif current_page == "Progress":
         render_progress_view(active_startup, roadmap, agent_results)
     elif current_page == "Chat":

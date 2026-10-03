@@ -7,6 +7,7 @@ from typing import Optional, Dict, Any
 import streamlit as st
 from database.models import Startup, StartupAnalysis, DynamicRoadmap
 from services.report_service import ReportService
+from ui.styles import get_width_kwargs
 
 
 def render_blueprint_view(
@@ -19,6 +20,10 @@ def render_blueprint_view(
     """
     if not startup:
         st.info("Please create or select a startup to view the blueprint.")
+        return
+
+    if not analysis:
+        st.info(f"Venture Blueprint for '{startup.name}' has not been generated yet. Please launch startup evaluation to generate the strategic blueprint.")
         return
 
     # Header with Download PDF Button
@@ -45,7 +50,7 @@ def render_blueprint_view(
             file_name=f"{startup.name.lower().replace(' ', '_')}_blueprint.pdf",
             mime="application/pdf",
             type="primary",
-            use_container_width=True,
+            **get_width_kwargs(True),
         )
 
     st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)

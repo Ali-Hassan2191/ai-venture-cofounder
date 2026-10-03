@@ -45,6 +45,13 @@ class AnalysisService:
 
         rag_context = knowledge_retriever.get_formatted_context(user_question, top_k=2)
 
+        roadmap = StartupRepository.get_roadmap(startup_id)
+        roadmap_status = (
+            f"Day {roadmap.current_day} of {roadmap.total_duration_days} ({roadmap.current_phase}, {roadmap.progress_percent:.0f}% complete)"
+            if roadmap
+            else "Roadmap not generated yet"
+        )
+
         prompt = f"""
 You are the AI Co-Founder and CEO of '{startup.name}'.
 Your founder is asking you a question or seeking strategic guidance.
@@ -53,9 +60,10 @@ Startup Context:
 - Idea: {startup.idea}
 - Country/Market: {startup.country} ({startup.target_market})
 - Target Customer: {startup.target_customer}
-- Budget: {startup.currency}{startup.budget:,}
+- Available Budget: {startup.currency}{float(startup.budget or 0):,.0f}
 - Feasibility Verdict: {analysis.feasibility_verdict} (Score: {analysis.overall_score}/100)
 - Core Business Model: {analysis.business_model}
+- Execution Roadmap Status: {roadmap_status}
 - Known Risks: {', '.join(analysis.major_risks[:3]) if analysis.major_risks else 'Standard venture risks'}
 
 {rag_context}

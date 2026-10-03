@@ -7,6 +7,7 @@ import streamlit as st
 import plotly.graph_objects as go
 from database.models import Startup, DynamicRoadmap, AgentResult
 from services.roadmap_service import RoadmapService
+from ui.styles import get_width_kwargs
 
 
 def render_progress_view(
@@ -110,20 +111,28 @@ def render_progress_view(
             xaxis=dict(range=[0, 100], gridcolor="#1E293B", color="#94A3B8", title="Completion %"),
             yaxis=dict(gridcolor="#1E293B", color="#F8FAFC"),
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, **get_width_kwargs(True))
 
-    # 3. Phased Milestones Checklist
+    # 3. Phased Milestones Checklist (from active dynamic roadmap)
     st.markdown("### 🏆 Strategic Milestones Tracker")
-    milestones = roadmap.milestones or [
-        {"day": 7, "title": "Customer Problem Validation Sign-off"},
-        {"day": 20, "title": "Core Product Feature Complete"},
-        {"day": 35, "title": "Pilot Alpha Onboarding (50 Active Users)"},
-        {"day": 45, "title": "Public Launch & First Paying Customers"},
-    ]
+    milestones = roadmap.milestones
+    if not milestones:
+        milestones = []
+        for t in tasks:
+            if t.milestone_tag:
+                milestones.append({"day": t.day_number, "title": f"{t.milestone_tag} – {t.title}"})
+    if not milestones:
+        tot = roadmap.total_duration_days
+        milestones = [
+            {"day": max(3, round(tot * 0.22)), "title": f"Customer Validation Sign-Off ({startup.target_customer})"},
+            {"day": max(7, round(tot * 0.60)), "title": f"Core Product Feature Complete for {startup.name}"},
+            {"day": max(10, round(tot * 0.85)), "title": f"Pilot Alpha Cohort Review in {startup.country}"},
+            {"day": tot, "title": f"Commercial Public Launch & Growth Gate"},
+        ]
 
     for m in milestones:
         day_num = m.get("day", 1)
-        is_past = current_day = roadmap.current_day >= day_num
+        is_past = roadmap.current_day >= day_num
         icon = "✅" if is_past else "⏳"
         color = "#10B981" if is_past else "#94A3B8"
         status_txt = "Achieved" if is_past else "Upcoming Target"

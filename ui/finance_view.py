@@ -7,11 +7,16 @@ from typing import Optional, Dict, Any
 import streamlit as st
 import plotly.graph_objects as go
 import plotly.express as px
-from database.models import Startup, AgentResult
+from database.models import Startup, AgentResult, StartupAnalysis
 from services.financial_service import FinancialService
+from ui.styles import get_width_kwargs
 
 
-def render_finance_view(startup: Optional[Startup], agent_results: Dict[str, AgentResult]):
+def render_finance_view(
+    startup: Optional[Startup],
+    analysis: Optional[StartupAnalysis],
+    agent_results: Dict[str, AgentResult],
+):
     """
     Renders the Financial Model screen.
     """
@@ -40,14 +45,21 @@ def render_finance_view(startup: Optional[Startup], agent_results: Dict[str, Age
         st.warning("Financial model, burn rate projections, and unit economics are currently unavailable for this venture.")
         return
 
+    if not fin_res and not analysis:
+        st.info(f"Financial model for '{startup.name}' has not been generated yet. Run startup evaluation to view unit economics.")
+        return
+
     data: Dict[str, Any] = fin_res.structured_output if (fin_res and fin_res.structured_output) else {}
 
     currency = data.get("currency") or startup.currency or "$"
-    dev_cost = float(data.get("development_costs", 12000))
-    monthly_ops = float(data.get("monthly_operating_costs", 1800))
-    monthly_mkt = float(data.get("monthly_marketing_costs", 1500))
-    break_even_str = str(data.get("break_even_point", "450 active subscribers or 1,200 orders/month"))
-    revenue_model = data.get("revenue_model", "SaaS Subscriptions + Transaction Platform Fee")
+    budget_val = float(startup.budget or 10000.0)
+
+    # Deterministic budget-scaled financial allocations if specific items missing
+    dev_cost = float(data.get("development_costs") or max(2500.0, budget_val * 0.45))
+    monthly_ops = float(data.get("monthly_operating_costs") or max(350.0, budget_val * 0.08))
+    monthly_mkt = float(data.get("monthly_marketing_costs") or max(300.0, budget_val * 0.07))
+    break_even_str = str(data.get("break_even_point") or f"Approx. 350-500 paying users or monthly revenue of {currency}{monthly_ops + monthly_mkt:,.0f}")
+    revenue_model = str(data.get("revenue_model") or (analysis.revenue_model if analysis else "Tiered subscriptions and service fees"))
 
     # 1. Metric Cards Row
     m1, m2, m3, m4 = st.columns(4)
@@ -79,19 +91,20 @@ def render_finance_view(startup: Optional[Startup], agent_results: Dict[str, Age
             <div class="venture-card">
                 <div class="stat-label">Monthly Acquisition Burn</div>
                 <div class="stat-value" style="color: #8B5CF6;">{currency}{monthly_mkt:,.0f}</div>
-                <div style="color: #94A3B8; font-size: 0.75rem; margin-top: 4px;">Growth & Referral seeding</div>
+                <div style="color: #94A3B8; font-size: 0.75rem; margin-top: 4px;">Growth & Customer acquisition</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
     with m4:
-        runway = int(startup.budget / (monthly_ops + monthly_mkt + 1e-9)) if startup.budget > 0 else 6
+        total_monthly_burn = monthly_ops + monthly_mkt
+        runway = max(1, int(budget_val / (total_monthly_burn + 1e-9))) if budget_val > 0 else 6
         st.markdown(
             f"""
             <div class="venture-card">
                 <div class="stat-label">Capital Runway</div>
                 <div class="stat-value" style="color: #10B981;">{runway} <span style="font-size: 1rem; color: #64748B;">Mo</span></div>
-                <div style="color: #94A3B8; font-size: 0.75rem; margin-top: 4px;">Based on {currency}{startup.budget:,.0f} budget</div>
+                <div style="color: #94A3B8; font-size: 0.75rem; margin-top: 4px;">Based on {currency}{budget_val:,.0f} budget</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -100,10 +113,10 @@ def render_finance_view(startup: Optional[Startup], agent_results: Dict[str, Age
     # 2. 12-Month Cashflow Forecast (Pandas & Plotly)
     st.markdown("### 📈 12-Month Revenue & Cashflow Trajectory")
     cashflow_df = FinancialService.calculate_12_month_cashflow(
-        initial_budget=startup.budget,
+        initial_budget=budget_val,
         monthly_fixed_costs=monthly_ops,
         monthly_marketing=monthly_mkt,
-        avg_revenue_per_user=19.99,
+        avg_revenue_per_user=24.99,
         expected_monthly_growth_rate=0.20,
     )
 
@@ -139,7 +152,7 @@ def render_finance_view(startup: Optional[Startup], agent_results: Dict[str, Age
         yaxis=dict(gridcolor="#1E293B", color="#94A3B8", title=f"Monthly Amount ({currency})"),
         yaxis2=dict(overlaying="y", side="right", color="#6366F1", title=f"Treasury Balance ({currency})", showgrid=False),
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, **get_width_kwargs(True))
 
     # 3. Capital Allocation & Break-Even Metrics Row
     c_col1, c_col2 = st.columns([1.2, 1])
@@ -150,7 +163,7 @@ def render_finance_view(startup: Optional[Startup], agent_results: Dict[str, Age
             dev_cost=dev_cost,
             marketing_cost=monthly_mkt * 3,
             ops_cost=monthly_ops * 3,
-            reserve_cost=max(2000.0, startup.budget - (dev_cost + (monthly_mkt * 3) + (monthly_ops * 3))),
+            reserve_cost=max(1000.0, budget_val - (dev_cost + (monthly_mkt * 3) + (monthly_ops * 3))),
         )
         pie_fig = px.pie(
             cost_df,
@@ -167,7 +180,7 @@ def render_finance_view(startup: Optional[Startup], agent_results: Dict[str, Age
             margin=dict(l=10, r=10, t=10, b=10),
             height=260,
         )
-        st.plotly_chart(pie_fig, use_container_width=True)
+        st.plotly_chart(pie_fig, **get_width_kwargs(True))
 
     with c_col2:
         st.markdown("### 🎯 Break-Even Economics")
@@ -184,18 +197,18 @@ def render_finance_view(startup: Optional[Startup], agent_results: Dict[str, Age
                     <b>Primary Revenue Model:</b><br>{revenue_model}
                 </div>
                 <div style="margin-top: 10px; font-size: 0.82rem; color: #94A3B8;">
-                    <b>Estimated Gross Margin:</b><br><span style="color: #10B981; font-weight: 700;">68% - 78%</span>
+                    <b>Target Gross Margin:</b><br><span style="color: #10B981; font-weight: 700;">65% - 80%</span>
                 </div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-    # 4. Pricing Options
+    # 4. Venture-Tailored Pricing Tiers
     pricing_list = data.get("pricing_options") or [
-        {"tier_name": "Free Campus Pass", "price": 0.0, "billing_period": "forever", "target_persona": "Casual exploratory user"},
-        {"tier_name": "Student Saver Monthly", "price": 14.99, "billing_period": "monthly", "target_persona": "Active student diner"},
-        {"tier_name": "Unlimited Dorm Club", "price": 29.99, "billing_period": "monthly", "target_persona": "Power user with zero delivery fees"},
+        {"tier_name": "Starter Tier", "price": 0.0, "billing_period": "forever", "target_persona": f"Early exploratory {startup.target_customer}"},
+        {"tier_name": "Pro Growth Tier", "price": 19.99, "billing_period": "monthly", "target_persona": f"Core active {startup.target_customer}"},
+        {"tier_name": "Enterprise / Scale Tier", "price": 49.99, "billing_period": "monthly", "target_persona": f"High-volume power users in {startup.country}"},
     ]
 
     st.markdown("### 🏷️ Recommended Pricing Tiers")

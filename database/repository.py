@@ -140,7 +140,11 @@ class StartupRepository:
         with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM analyses WHERE startup_id = ?", (startup_id,))
-            cursor.execute("DELETE FROM dynamic_roadmaps WHERE startup_id = ?", (startup_id,))
+            cursor.execute(
+                "DELETE FROM roadmap_tasks WHERE roadmap_id IN (SELECT id FROM roadmaps WHERE startup_id = ?)",
+                (startup_id,),
+            )
+            cursor.execute("DELETE FROM roadmaps WHERE startup_id = ?", (startup_id,))
             cursor.execute("DELETE FROM agent_results WHERE startup_id = ?", (startup_id,))
             cursor.execute(
                 "UPDATE startups SET status = 'running', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
@@ -453,6 +457,88 @@ class StartupRepository:
                 done = stats["done"] or 0
                 pct = round((done / total) * 100.0, 1)
                 cursor.execute("UPDATE roadmaps SET progress_percent = ? WHERE id = ?", (pct, r_id))
+
+    @staticmethod
+    def update_roadmap_progress(
+        roadmap_id: int,
+        current_day: int,
+        current_phase: Optional[str] = None,
+        progress_percent: Optional[float] = None,
+    ) -> None:
+        """
+        Updates the current day, phase, and progress percentage for a roadmap.
+        Authoritative SQLite persistence.
+        """
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT total_duration_days, current_day, current_phase, progress_percent FROM roadmaps WHERE id = ?",
+                (roadmap_id,),
+            )
+            rm_row = cursor.fetchone()
+            if not rm_row:
+                return
+
+            tot_days = rm_row["total_duration_days"] or 30
+            clamped_day = max(1, min(tot_days, current_day))
+
+            # Auto-infer phase if not provided
+            if not current_phase:
+                cursor.execute(
+                    "SELECT phase FROM roadmap_tasks WHERE roadmap_id = ? AND day_number <= ? ORDER BY day_number DESC, id DESC LIMIT 1",
+                    (roadmap_id, clamped_day),
+                )
+                p_row = cursor.fetchone()
+                if p_row and p_row["phase"]:
+                    current_phase = p_row["phase"]
+                else:
+                    current_phase = rm_row["current_phase"] or "Validation Phase"
+
+            # Auto-calculate progress_percent if not provided
+            if progress_percent is None:
+                cursor.execute(
+                    "SELECT COUNT(*) as total, SUM(is_completed) as done FROM roadmap_tasks WHERE roadmap_id = ?",
+                    (roadmap_id,),
+                )
+                stats = cursor.fetchone()
+                total = (stats["total"] if stats else 0) or 0
+                done = (stats["done"] if stats else 0) or 0
+                if total > 0:
+                    progress_percent = round((done / total) * 100.0, 1)
+                else:
+                    progress_percent = round(min(100.0, (clamped_day / tot_days) * 100.0), 1)
+
+            cursor.execute(
+                """
+                UPDATE roadmaps
+                SET current_day = ?,
+                    current_phase = ?,
+                    progress_percent = ?
+                WHERE id = ?
+                """,
+                (clamped_day, current_phase, progress_percent, roadmap_id),
+            )
+
+    @staticmethod
+    def complete_day_tasks(roadmap_id: int, day_number: int) -> None:
+        """
+        Marks all tasks for a specific day as completed in SQLite and recomputes roadmap progress.
+        """
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE roadmap_tasks SET is_completed = 1 WHERE roadmap_id = ? AND day_number = ?",
+                (roadmap_id, day_number),
+            )
+            cursor.execute(
+                "SELECT COUNT(*) as total, SUM(is_completed) as done FROM roadmap_tasks WHERE roadmap_id = ?",
+                (roadmap_id,),
+            )
+            stats = cursor.fetchone()
+            total = (stats["total"] if stats else 0) or 1
+            done = (stats["done"] if stats else 0) or 0
+            pct = round((done / total) * 100.0, 1)
+            cursor.execute("UPDATE roadmaps SET progress_percent = ? WHERE id = ?", (pct, roadmap_id))
 
     @staticmethod
     def save_chat_message(msg: ChatMessage) -> int:

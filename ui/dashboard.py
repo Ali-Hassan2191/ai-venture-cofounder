@@ -119,21 +119,28 @@ def render_dashboard(
         )
 
     with col2:
-        score = analysis.overall_score if analysis else 76
-        verdict = analysis.feasibility_verdict if analysis else "Good Potential"
+        has_analysis = (analysis is not None and analysis.overall_score is not None)
+        score = analysis.overall_score if has_analysis else 0
+        verdict = analysis.feasibility_verdict if has_analysis else "Analysis Pending"
 
         # Check if any agent failed
         finance_failed = (agent_results.get("finance") and agent_results.get("finance").status == "failed")
         any_failed = any(r.status == "failed" for r in agent_results.values())
         is_incomplete = any_failed or ("Incomplete" in verdict) or ("Failed" in verdict)
 
-        gauge_color = "#F59E0B" if is_incomplete else "#10B981"
-        verdict_color = "#EF4444" if is_incomplete else "#10B981"
+        if not has_analysis:
+            gauge_color = "#64748B"
+            verdict_color = "#F59E0B"
+            center_text = "<span style='font-size:16px;color:#94A3B8;'>Pending</span>"
+        else:
+            gauge_color = "#F59E0B" if is_incomplete else "#10B981"
+            verdict_color = "#EF4444" if is_incomplete else "#10B981"
+            center_text = f"<b>{score}</b><br><span style='font-size:10px;color:#94A3B8;'>/100</span>"
 
         # Render modern donut gauge chart
         fig = go.Figure(
             go.Pie(
-                values=[score, max(0, 100 - score)],
+                values=[score if has_analysis else 0, max(1, 100 - (score if has_analysis else 0))],
                 hole=0.75,
                 marker=dict(colors=[gauge_color, "#1E293B"]),
                 textinfo="none",
@@ -148,7 +155,7 @@ def render_dashboard(
             plot_bgcolor="rgba(0,0,0,0)",
             annotations=[
                 dict(
-                    text=f"<b>{score}</b><br><span style='font-size:10px;color:#94A3B8;'>/100</span>",
+                    text=center_text,
                     x=0.5,
                     y=0.5,
                     font_size=20,
@@ -178,14 +185,7 @@ def render_dashboard(
         )
 
     # 3. Category Score Cards (6 Columns)
-    cat_scores = analysis.category_scores if (analysis and analysis.category_scores) else {
-        "market": 82,
-        "competition": 64,
-        "business_model": 73,
-        "finance": 68,
-        "technology": 91,
-        "risk": 59,
-    }
+    cat_scores = analysis.category_scores if (has_analysis and analysis.category_scores) else {}
 
     render_html("<div style='height: 10px;'></div>")
     c_cols = st.columns(6)
@@ -203,7 +203,24 @@ def render_dashboard(
         val = cat_scores.get(key)
         agent_has_failed = (agent_results.get(key) and agent_results.get(key).status == "failed")
         with col:
-            if val is None or agent_has_failed:
+            if not has_analysis:
+                render_html(
+                    f"""
+                    <div class="category-metric-card" style="border-color: #1E293B;">
+                        <div style="font-size: 0.72rem; color: #94A3B8; font-weight: 600; margin-bottom: 4px;">
+                            {label}
+                        </div>
+                        <div style="display: flex; align-items: baseline; justify-content: space-between;">
+                            <div>
+                                <span style="font-size: 1.05rem; font-weight: 700; color: #94A3B8;">PENDING</span>
+                            </div>
+                            <span style="color: #64748B; font-size: 0.75rem;">⏳</span>
+                        </div>
+                        <div style="font-size: 0.68rem; color: #64748B; margin-top: 2px;">Analysis Not Run</div>
+                    </div>
+                    """
+                )
+            elif val is None or agent_has_failed:
                 render_html(
                     f"""
                     <div class="category-metric-card" style="border-color: rgba(239, 68, 68, 0.4);">

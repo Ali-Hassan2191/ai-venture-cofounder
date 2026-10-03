@@ -49,3 +49,7 @@ Thumbs.db
 # Runtime generated reports
 data/reports/*.pdf
 data/reports/
+
+# Scratch directory
+scratch/
+

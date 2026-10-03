@@ -120,8 +120,8 @@ class ReportService:
         story.append(HRFlowable(width="100%", thickness=1.5, color=primary_color, spaceAfter=12))
 
         # 2. Startup Overview Meta Table
-        score_val = analysis.overall_score if analysis else 75
-        verdict_val = analysis.feasibility_verdict if analysis else "Good Potential"
+        score_val = f"{analysis.overall_score}/100" if (analysis and analysis.overall_score is not None) else "Pending"
+        verdict_val = analysis.feasibility_verdict if analysis else "Pending Analysis"
         duration_val = f"{roadmap.total_duration_days} Days" if roadmap else "Dynamic Duration"
 
         meta_data = [
@@ -129,7 +129,7 @@ class ReportService:
                 Paragraph("<b>Startup Name:</b>", bold_label),
                 Paragraph(startup.name, body_style),
                 Paragraph("<b>Overall Score:</b>", bold_label),
-                Paragraph(f"<font color='{emerald.hexval()}'><b>{score_val}/100</b></font>", body_style),
+                Paragraph(f"<font color='{emerald.hexval()}'><b>{score_val}</b></font>", body_style),
             ],
             [
                 Paragraph("<b>Operating Market:</b>", bold_label),

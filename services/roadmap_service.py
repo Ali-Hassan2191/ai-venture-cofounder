@@ -26,12 +26,29 @@ class RoadmapService:
             return None
 
         new_day = min(roadmap.total_duration_days, roadmap.current_day + 1)
+        # Determine the phase matching new_day
+        new_phase = roadmap.current_phase
+        if roadmap.tasks:
+            tasks_for_day = [t.phase for t in roadmap.tasks if t.day_number <= new_day and t.phase]
+            if tasks_for_day:
+                new_phase = tasks_for_day[-1]
+
         StartupRepository.update_roadmap_progress(
             roadmap_id=roadmap.id,
             current_day=new_day,
-            current_phase=roadmap.current_phase,
-            progress_percent=roadmap.progress_percent,
+            current_phase=new_phase,
+            progress_percent=None,  # will recompute from tasks
         )
+        return StartupRepository.get_roadmap(startup_id)
+
+    @staticmethod
+    def complete_day(startup_id: int, day_number: int) -> Optional[DynamicRoadmap]:
+        """Marks all tasks for the specified day as completed and updates progress."""
+        roadmap = StartupRepository.get_roadmap(startup_id)
+        if not roadmap:
+            return None
+
+        StartupRepository.complete_day_tasks(roadmap.id, day_number)
         return StartupRepository.get_roadmap(startup_id)
 
     @staticmethod

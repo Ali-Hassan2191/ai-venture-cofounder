@@ -5,7 +5,7 @@ Market Research -> Competitor -> Finance -> Marketing -> CTO -> CEO.
 Strictly adheres to the global 7,500 output token limit.
 """
 import logging
-from typing import Dict, Any, Callable, Optional
+from typing import Dict, Any, Callable, Optional, List
 
 # Fix for Groq API: strip 'cache_breakpoint' property from messages
 try:
@@ -489,65 +489,277 @@ class StartupCrewOrchestrator:
         )
         StartupRepository.save_analysis(analysis)
 
-        # Dynamic Roadmap handling (NEVER hardcoded 30 days)
-        roadmap_data = ceo_data.get("dynamic_roadmap", {})
-        total_duration = int(roadmap_data.get("total_duration_days", 45))
-        # Ensure dynamic duration is reasonable
-        if total_duration < 14:
-            total_duration = 21
+        # Authoritative Dynamic Roadmap handling (NEVER hardcoded 30/45 days)
+        startup = StartupRepository.get_startup(startup_id)
+        if not startup:
+            startup = Startup(id=startup_id, name="Venture", idea="", country="Global", target_market="", target_customer="", budget=10000.0)
 
-        phases = roadmap_data.get("phases", [])
-        milestones = roadmap_data.get("milestones", [])
-        raw_tasks = roadmap_data.get("tasks", [])
+        total_duration = self._calculate_dynamic_duration(startup, all_outputs, ceo_data)
+        v_end = max(3, round(total_duration * 0.22))
+        b_end = max(v_end + 5, round(total_duration * 0.60))
+        p_end = max(b_end + 3, round(total_duration * 0.85))
 
-        roadmap_tasks = []
-        if raw_tasks:
-            for t in raw_tasks:
-                roadmap_tasks.append(
-                    RoadmapTask(
-                        roadmap_id=0,
-                        day_number=int(t.get("day_number", 1)),
-                        phase=t.get("phase", "Validation Phase"),
-                        title=t.get("title", "Execute planned task"),
-                        description=t.get("description", ""),
-                        is_completed=False,
-                        milestone_tag=t.get("milestone_tag", ""),
-                    )
-                )
-        else:
-            # Generate structured dynamic tasks spanning the dynamic duration
-            roadmap_tasks = self._generate_default_dynamic_tasks(total_duration)
+        # Dynamic Phases tailored to the calculated duration
+        phases = [
+            {"name": "Phase 1: Validation & Customer Discovery", "days": f"Day 1 - {v_end}"},
+            {"name": "Phase 2: Core Architecture & Build", "days": f"Day {v_end + 1} - {b_end}"},
+            {"name": "Phase 3: Pilot & Unit Economics Validation", "days": f"Day {b_end + 1} - {p_end}"},
+            {"name": "Phase 4: Commercial Launch & Scaling", "days": f"Day {p_end + 1} - {total_duration}"},
+        ]
+
+        # Strategic venture milestones
+        milestones = [
+            {"day": v_end, "title": f"Customer Validation Sign-Off ({startup.target_customer})"},
+            {"day": b_end, "title": f"Core Product Feature Freeze for {startup.name}"},
+            {"day": p_end, "title": f"Closed Pilot Feedback Gate ({startup.country})"},
+            {"day": total_duration, "title": f"Commercial Public Launch & Growth Gate"},
+        ]
+
+        # Generate venture-specific tasks spanning the dynamic duration
+        roadmap_tasks = self._generate_dynamic_venture_tasks(
+            startup=startup,
+            total_duration=total_duration,
+            all_outputs=all_outputs,
+            ceo_data=ceo_data,
+        )
 
         dynamic_roadmap = DynamicRoadmap(
             startup_id=startup_id,
             total_duration_days=total_duration,
             current_day=1,
-            current_phase=phases[0]["name"] if phases else "Validation Phase",
+            current_phase=phases[0]["name"],
             progress_percent=0.0,
             milestones=milestones,
             tasks=roadmap_tasks,
         )
         StartupRepository.save_roadmap(dynamic_roadmap)
 
-    def _generate_default_dynamic_tasks(self, duration_days: int) -> list:
-        """Generates dynamic phased tasks scaled to the venture's dynamic duration."""
+    def _calculate_dynamic_duration(
+        self,
+        startup: Startup,
+        all_outputs: Dict[str, Any],
+        ceo_data: Dict[str, Any],
+    ) -> int:
+        """
+        Dynamically calculates calibrated venture roadmap duration (in days)
+        based on founder experience, capital runway, domain complexity (FinTech, Health, AI,
+        Marketplace, SaaS), CTO technical scope, integrations, and CEO agent synthesis.
+        Guarantees that different startup concepts produce distinct, appropriate durations (e.g. 21, 35, 45, 60, 90).
+        """
+        duration = 30  # Baseline sprint
+
+        # 1. Founder Experience Factor
+        exp = (startup.founder_experience or "").lower()
+        if "beginner" in exp:
+            duration += 10
+        elif "intermediate" in exp:
+            duration += 5
+        elif any(k in exp for k in ["experienced", "serial", "advanced"]):
+            duration -= 5
+
+        # 2. Capital Budget Factor
+        budget = float(startup.budget or 0)
+        if budget < 5000:
+            duration -= 5  # Lean rapid MVP sprint
+        elif budget > 50000:
+            duration += 10  # Comprehensive build runway
+
+        # 3. Technical Complexity & Scope (from CTO Agent output)
+        cto_data = all_outputs.get("cto", {})
+        complexity = str(cto_data.get("development_complexity", "")).lower()
+        core_features = cto_data.get("core_features") or []
+        integrations = cto_data.get("required_integrations") or []
+
+        if "high" in complexity:
+            duration += 15
+        elif "low" in complexity:
+            duration -= 7
+        else:
+            duration += 5
+
+        if len(core_features) >= 4:
+            duration += 8
+        if len(integrations) >= 3:
+            duration += 6
+
+        # 4. Domain & Industry Vertical Analysis
+        text_context = f"{startup.name} {startup.idea} {startup.target_market} {startup.additional_context}".lower()
+        if any(w in text_context for w in ["fintech", "banking", "payment", "crypto", "blockchain", "lending", "credit", "insurance"]):
+            duration += 25  # Heavy compliance, KYC, banking APIs
+        elif any(w in text_context for w in ["health", "medical", "clinic", "biotech", "pharma", "diagnostic", "patient"]):
+            duration += 28  # Healthcare regulations, HIPAA, clinical testing
+        elif any(w in text_context for w in ["hardware", "iot", "robotics", "device", "physical", "sensor"]):
+            duration += 30  # Hardware prototyping and supply chain
+        elif any(w in text_context for w in ["marketplace", "courier", "delivery", "two-sided", "platform", "driver", "vendor"]):
+            duration += 12  # Two-sided liquidity bootstrapping
+        elif any(w in text_context for w in ["ai", "deep learning", "llm", "rag", "vision", "speech", "automation"]):
+            duration += 8   # Model evaluation, vector search tuning
+
+        # 5. Blend with CEO Agent proposal
+        ceo_roadmap = ceo_data.get("dynamic_roadmap", {})
+        ceo_proposed = ceo_roadmap.get("total_duration_days")
+        if isinstance(ceo_proposed, (int, float)) and 14 <= int(ceo_proposed) <= 120:
+            final_duration = round(0.50 * duration + 0.50 * int(ceo_proposed))
+        else:
+            final_duration = duration
+
+        # Clamp between 15 and 120 days
+        return int(max(15, min(120, final_duration)))
+
+    def _generate_dynamic_venture_tasks(
+        self,
+        startup: Startup,
+        total_duration: int,
+        all_outputs: Dict[str, Any],
+        ceo_data: Dict[str, Any],
+    ) -> List[RoadmapTask]:
+        """
+        Generates structured, venture-specific tasks spanning the dynamic duration.
+        Every task is directly tied to the startup's actual idea, target customer, market findings,
+        competitor gaps, CTO core features, financial targets, and marketing channels.
+        """
+        # Extract rich context from all 6 agents
+        mkt = all_outputs.get("market_research", {})
+        problems = mkt.get("customer_problems") or [f"High friction and lack of tailored solutions for {startup.target_customer}"]
+        p_main = problems[0] if problems else f"Pain point for {startup.target_customer}"
+
+        comp = all_outputs.get("competitor_analysis", {})
+        usp = comp.get("recommended_usp") or f"Tailored, cost-effective solution for {startup.target_customer}"
+        competitors = comp.get("competitors") or []
+        top_comp = competitors[0].get("name", "legacy incumbents") if competitors and isinstance(competitors[0], dict) else "incumbents"
+
+        fin = all_outputs.get("finance", {})
+        break_even = fin.get("break_even_point") or "Initial break-even order volume"
+        pricing_opts = fin.get("pricing_options") or []
+        tier_label = pricing_opts[0].get("tier_name", "standard tier") if pricing_opts and isinstance(pricing_opts[0], dict) else "core pricing tier"
+
+        mktg = all_outputs.get("marketing", {})
+        channels = mktg.get("customer_acquisition_channels") or []
+        c_main = channels[0].get("channel", "direct organic outreach") if channels and isinstance(channels[0], dict) else "direct outreach"
+        promos = mktg.get("promotional_ideas") or [f"Early adopter referral loop for {startup.target_customer}"]
+        promo_main = promos[0] if promos else "Referral program"
+
+        cto = all_outputs.get("cto", {})
+        core_features = cto.get("core_features") or [
+            f"Core User Workflow for {startup.name}",
+            f"Automated Matching / Processing Engine",
+            f"Payment & Order Management",
+            f"Founder & Admin Analytics",
+        ]
+        feat1 = core_features[0] if len(core_features) > 0 else "Primary User Workflow"
+        feat2 = core_features[1] if len(core_features) > 1 else "Core Engine Logic"
+        feat3 = core_features[2] if len(core_features) > 2 else "Transaction & Analytics"
+
+        tech_stack = cto.get("recommended_tech_stack") or {}
+        backend_tech = tech_stack.get("backend", "Python Services")
+        db_tech = tech_stack.get("database", "Relational Database")
+
+        integrations = cto.get("required_integrations") or ["Payment Gateway", "Authentication & Messaging"]
+        int1 = integrations[0] if integrations else "Payment Gateway"
+
+        # Calculate phase milestones based on dynamic total_duration N
+        v_end = max(3, round(total_duration * 0.22))
+        b_end = max(v_end + 5, round(total_duration * 0.60))
+        p_end = max(b_end + 3, round(total_duration * 0.85))
+
         tasks = []
-        # Phase 1: Validation (First 25% of days)
-        val_end = max(3, int(duration_days * 0.25))
-        tasks.append(RoadmapTask(0, 1, "Validation Phase", "Define Customer Interview Script", "Draft open-ended problem questions."))
-        tasks.append(RoadmapTask(0, 2, "Validation Phase", "Conduct First 5 Discovery Interviews", "Record top complaints and workarounds."))
-        tasks.append(RoadmapTask(0, val_end, "Validation Phase", "Synthesize Customer Validation Evidence", "Validate demand before building.", milestone_tag="Customer Validation Sign-off"))
 
-        # Phase 2: Core Build (Next 40% of days)
-        build_mid = val_end + max(3, int(duration_days * 0.20))
-        build_end = val_end + max(6, int(duration_days * 0.40))
-        tasks.append(RoadmapTask(0, val_end + 1, "Core Build Phase", "Setup Database Schema & Service Architecture", "Implement core data models."))
-        tasks.append(RoadmapTask(0, build_mid, "Core Build Phase", "Develop Core User Workflows", "Build the primary value engine."))
-        tasks.append(RoadmapTask(0, build_end, "Core Build Phase", "Internal Alpha Feature Freeze", "Ensure all core features function reliably.", milestone_tag="Core Build Milestone"))
+        # ==================== Phase 1: Validation & Customer Discovery ====================
+        p1 = "Phase 1: Validation & Customer Discovery"
+        tasks.append(RoadmapTask(
+            roadmap_id=0, day_number=1, phase=p1,
+            title=f"Draft Customer Discovery Script for {startup.target_customer}",
+            description=f"Formulate 10 open-ended interview questions focusing on: '{p_main}'.",
+            is_completed=False,
+        ))
+        tasks.append(RoadmapTask(
+            roadmap_id=0, day_number=2, phase=p1,
+            title=f"Conduct Initial 5 Customer Interviews in {startup.country}",
+            description=f"Interview 5 target users to verify if '{p_main}' is an acute, budget-backed pain.",
+            is_completed=False,
+        ))
+        tasks.append(RoadmapTask(
+            roadmap_id=0, day_number=min(v_end - 1, 4), phase=p1,
+            title=f"Competitive Audit against {top_comp} & USP Validation",
+            description=f"Validate differentiation moat: '{usp[:75]}' directly with prospective customers.",
+            is_completed=False,
+        ))
+        tasks.append(RoadmapTask(
+            roadmap_id=0, day_number=v_end, phase=p1,
+            title=f"Customer Problem Validation Sign-Off for {startup.name}",
+            description=f"Synthesize interview findings. Ensure at least 60% of respondents confirm willingness to pay.",
+            is_completed=False, milestone_tag="Customer Validation Sign-Off",
+        ))
 
-        # Phase 3: Testing & Closed Launch (Remaining days)
-        tasks.append(RoadmapTask(0, build_end + 2, "Launch & Growth Phase", "Onboard First 20 Pilot Users", "Gather live user metrics and feedback."))
-        tasks.append(RoadmapTask(0, duration_days, "Launch & Growth Phase", "Public Launch & Traction Review", "Review unit metrics and iterate.", milestone_tag="Public Launch Milestone"))
+        # ==================== Phase 2: Core Architecture & Engineering ====================
+        p2 = "Phase 2: Core Architecture & Build"
+        tasks.append(RoadmapTask(
+            roadmap_id=0, day_number=v_end + 1, phase=p2,
+            title=f"Setup {db_tech} Schema & API Architecture",
+            description=f"Model data structures for users, transactions, and core workflows for {startup.name}.",
+            is_completed=False,
+        ))
+        tasks.append(RoadmapTask(
+            roadmap_id=0, day_number=v_end + max(2, round((b_end - v_end) * 0.25)), phase=p2,
+            title=f"Build {feat1[:60]}",
+            description=f"Implement initial end-to-end user journey in {backend_tech}.",
+            is_completed=False,
+        ))
+        tasks.append(RoadmapTask(
+            roadmap_id=0, day_number=v_end + max(4, round((b_end - v_end) * 0.55)), phase=p2,
+            title=f"Implement {feat2[:60]} & {int1}",
+            description=f"Integrate {int1} and build automated workflow mechanics for {startup.name}.",
+            is_completed=False,
+        ))
+        tasks.append(RoadmapTask(
+            roadmap_id=0, day_number=b_end - 1, phase=p2,
+            title=f"Build {feat3[:60]} & Safeguards",
+            description=f"Complete final MVP feature scope with rate-limiting, error logging, and data privacy safeguards.",
+            is_completed=False,
+        ))
+        tasks.append(RoadmapTask(
+            roadmap_id=0, day_number=b_end, phase=p2,
+            title=f"Core Alpha Feature Freeze for {startup.name}",
+            description=f"Internal end-to-end alpha walkthrough. Ensure zero critical bugs before inviting outside users.",
+            is_completed=False, milestone_tag="Core Architecture Complete",
+        ))
+
+        # ==================== Phase 3: Financial Verification & Pilot Launch ====================
+        p3 = "Phase 3: Pilot & Unit Economics Validation"
+        tasks.append(RoadmapTask(
+            roadmap_id=0, day_number=b_end + 1, phase=p3,
+            title=f"Setup Billing & {tier_label} Payment Collection",
+            description=f"Configure commercial pricing and checkout for {startup.currency}{startup.budget:,.0f} budget plan.",
+            is_completed=False,
+        ))
+        tasks.append(RoadmapTask(
+            roadmap_id=0, day_number=b_end + max(2, round((p_end - b_end) * 0.40)), phase=p3,
+            title=f"Deploy Pilot Acquisition on {c_main}",
+            description=f"Execute targeted launch sprint to recruit first 25-50 pilot cohort users in {startup.country}.",
+            is_completed=False,
+        ))
+        tasks.append(RoadmapTask(
+            roadmap_id=0, day_number=p_end, phase=p3,
+            title=f"Closed Pilot Feedback Review & Break-Even Trajectory",
+            description=f"Assess pilot retention, churn, and gross margins toward {break_even[:50]}.",
+            is_completed=False, milestone_tag="Pilot Sign-Off",
+        ))
+
+        # ==================== Phase 4: Commercial Launch & Growth Traction ====================
+        p4 = "Phase 4: Commercial Launch & Scaling"
+        tasks.append(RoadmapTask(
+            roadmap_id=0, day_number=p_end + max(1, round((total_duration - p_end) * 0.35)), phase=p4,
+            title=f"Activate Viral Growth Loops & {promo_main[:50]}",
+            description=f"Incentivize organic referrals and community-driven distribution in {startup.target_market}.",
+            is_completed=False,
+        ))
+        tasks.append(RoadmapTask(
+            roadmap_id=0, day_number=total_duration, phase=p4,
+            title=f"Public Launch in {startup.country} & 100-User Growth Review",
+            description=f"Official commercial release of {startup.name}. Monitor server latency, unit CAC/LTV, and customer NPS.",
+            is_completed=False, milestone_tag="Commercial Launch Milestone",
+        ))
+
         return tasks
 
     def _generate_fallback_synthesis(self, startup: Startup, all_outputs: Dict[str, Any]) -> Dict[str, Any]:

@@ -10,7 +10,7 @@ from utils.constants import (
     COMMON_COUNTRIES,
     FOUNDER_EXPERIENCE_LEVELS,
 )
-from ui.styles import render_html
+from ui.styles import render_html, get_width_kwargs
 
 
 def render_startup_form():
@@ -139,7 +139,7 @@ def render_startup_form():
             )
 
             render_html("<div style='height: 10px;'></div>")
-            submit_btn = st.form_submit_button("🚀 Build My Startup →", type="primary", use_container_width=True)
+            submit_btn = st.form_submit_button("🚀 Build My Startup →", type="primary", **get_width_kwargs(True))
 
         # 2. Form Submission Handling
         if submit_btn:
