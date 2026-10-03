@@ -18,11 +18,16 @@ def get_db_path() -> str:
 def get_db() -> Generator[sqlite3.Connection, None, None]:
     """Context manager for SQLite database connection with row factory."""
     db_path = get_db_path()
-    conn = sqlite3.connect(db_path, check_same_thread=False)
+    conn = sqlite3.connect(db_path, timeout=30.0, check_same_thread=False)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode = WAL;")
-    conn.execute("PRAGMA foreign_keys = ON;")
     try:
+        conn.execute("PRAGMA busy_timeout = 30000;")
+        try:
+            # Use DELETE journal mode for maximum compatibility across container mounts
+            conn.execute("PRAGMA journal_mode = DELETE;")
+        except Exception:
+            pass
+        conn.execute("PRAGMA foreign_keys = ON;")
         yield conn
         conn.commit()
     except Exception:
