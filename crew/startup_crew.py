@@ -6,6 +6,20 @@ Strictly adheres to the global 7,500 output token limit.
 """
 import logging
 from typing import Dict, Any, Callable, Optional
+
+# Fix for Groq API: strip 'cache_breakpoint' property from messages
+try:
+    import crewai.llms.cache as _crewai_cache
+    _crewai_cache.mark_cache_breakpoint = lambda msg: msg
+except Exception:
+    pass
+
+try:
+    import litellm
+    litellm.drop_params = True
+except Exception:
+    pass
+
 from crewai import Crew, Process
 
 from config.llm_config import TokenBudgetManager, global_token_manager

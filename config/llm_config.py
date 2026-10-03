@@ -7,6 +7,58 @@ import os
 import logging
 from typing import Dict, Any, Optional
 import streamlit as st
+
+# Fix for Groq API: Groq rejects 'cache_breakpoint' property injected into messages by CrewAI/LiteLLM
+try:
+    import crewai.llms.cache as _crewai_cache
+    _crewai_cache.mark_cache_breakpoint = lambda msg: msg
+except Exception:
+    pass
+
+try:
+    import litellm
+    litellm.drop_params = True
+
+    _orig_litellm_completion = litellm.completion
+    _orig_litellm_acompletion = litellm.acompletion
+
+    def _strip_cache_breakpoint(messages):
+        if not isinstance(messages, list):
+            return messages
+        for m in messages:
+            if isinstance(m, dict):
+                m.pop("cache_breakpoint", None)
+                m.pop("cache_control", None)
+                if "content" in m and isinstance(m["content"], list):
+                    for part in m["content"]:
+                        if isinstance(part, dict):
+                            part.pop("cache_breakpoint", None)
+                            part.pop("cache_control", None)
+        return messages
+
+    def _safe_litellm_completion(*args, **kwargs):
+        if "messages" in kwargs:
+            kwargs["messages"] = _strip_cache_breakpoint(kwargs["messages"])
+        elif len(args) > 1 and isinstance(args[1], list):
+            args = list(args)
+            args[1] = _strip_cache_breakpoint(args[1])
+            args = tuple(args)
+        return _orig_litellm_completion(*args, **kwargs)
+
+    async def _safe_litellm_acompletion(*args, **kwargs):
+        if "messages" in kwargs:
+            kwargs["messages"] = _strip_cache_breakpoint(kwargs["messages"])
+        elif len(args) > 1 and isinstance(args[1], list):
+            args = list(args)
+            args[1] = _strip_cache_breakpoint(args[1])
+            args = tuple(args)
+        return await _orig_litellm_acompletion(*args, **kwargs)
+
+    litellm.completion = _safe_litellm_completion
+    litellm.acompletion = _safe_litellm_acompletion
+except Exception:
+    pass
+
 from crewai import LLM
 from utils.constants import (
     DEFAULT_LLM_PROVIDER,
