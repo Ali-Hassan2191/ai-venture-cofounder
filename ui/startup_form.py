@@ -151,7 +151,7 @@ def render_startup_form():
                 target_customer=target_customer,
                 budget=budget,
                 currency="$",
-                founder_name="Founder",
+                founder_name="Ali Hassan",
                 founder_experience=founder_experience,
                 additional_context=additional_context,
             )

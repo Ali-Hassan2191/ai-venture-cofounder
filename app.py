@@ -50,6 +50,13 @@ def seed_default_venture_if_empty():
     Seeds a realistic initial startup venture if the database is newly initialized,
     enabling the user to explore the dashboard, blueprint, and dynamic roadmap immediately.
     """
+    from database.database import get_db
+    try:
+        with get_db() as conn:
+            conn.execute("UPDATE startups SET founder_name = 'Ali Hassan' WHERE founder_name = 'Ahmed Khan' OR founder_name IS NULL;")
+    except Exception:
+        pass
+
     existing = StartupRepository.list_startups()
     if existing:
         return

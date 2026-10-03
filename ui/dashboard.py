@@ -38,7 +38,11 @@ def render_dashboard(
             st.rerun()
         return
 
-    founder_name = startup.founder_name or "Founder"
+    founder_name = (
+        "Ali Hassan"
+        if (not startup or not startup.founder_name or startup.founder_name in ["Ahmed Khan", "Founder"])
+        else startup.founder_name
+    )
 
     # 1. Welcome Greeting
     render_html(

@@ -101,7 +101,11 @@ def render_sidebar(startups: List[Startup], active_startup: Optional[Startup]) -
         )
 
         # 5. Founder Profile at Sidebar Footer
-        founder_name = active_startup.founder_name if (active_startup and active_startup.founder_name) else "Ali Hassan"
+        founder_name = (
+            "Ali Hassan"
+            if (not active_startup or not active_startup.founder_name or active_startup.founder_name in ["Ahmed Khan", "Founder"])
+            else active_startup.founder_name
+        )
         render_html(
             f"""
             <div style="margin-top: auto; padding-top: 16px; border-top: 1px solid #1E293B; display: flex; align-items: center; gap: 10px;">
