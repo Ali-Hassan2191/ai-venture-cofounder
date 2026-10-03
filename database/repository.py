@@ -132,6 +132,22 @@ class StartupRepository:
             )
 
     @staticmethod
+    def reset_startup_run(startup_id: int) -> None:
+        """
+        Clears previous run analysis, dynamic roadmap, and agent results for this startup,
+        preventing stale or previous run scores from being displayed during/after a new run.
+        """
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM analyses WHERE startup_id = ?", (startup_id,))
+            cursor.execute("DELETE FROM dynamic_roadmaps WHERE startup_id = ?", (startup_id,))
+            cursor.execute("DELETE FROM agent_results WHERE startup_id = ?", (startup_id,))
+            cursor.execute(
+                "UPDATE startups SET status = 'running', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (startup_id,),
+            )
+
+    @staticmethod
     def save_agent_result(result: AgentResult) -> int:
         with get_db() as conn:
             cursor = conn.cursor()

@@ -17,12 +17,12 @@ APP_DESCRIPTION = (
 MAX_TOTAL_OUTPUT_TOKENS = 7500
 
 DEFAULT_TOKEN_ALLOCATIONS = {
-    "market_research": 1250,
-    "competitor_analysis": 1000,
-    "finance": 1000,
-    "marketing": 1000,
-    "cto": 1000,
-    "ceo": 2250,
+    "market_research": 1000,
+    "competitor_analysis": 850,
+    "finance": 1700,
+    "marketing": 850,
+    "cto": 1050,
+    "ceo": 2050,
 }
 
 # Supported LLM Providers & Models

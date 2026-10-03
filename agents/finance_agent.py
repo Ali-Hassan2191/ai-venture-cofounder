@@ -17,16 +17,16 @@ def create_finance_agent(token_manager: Optional[TokenBudgetManager] = None) -> 
     return Agent(
         role="Chief Financial Analyst",
         goal=(
-            "Model realistic startup unit economics, initial capital requirements, "
-            "ongoing operational expenses, viable pricing structures, revenue projections, "
-            "and break-even thresholds based on empirical benchmarks and budget constraints."
+            "Model realistic startup unit economics, capital requirements, operating costs, "
+            "pricing tiers, revenue projections, and break-even points in structured JSON format."
         ),
         backstory=(
-            "You are a pragmatic venture CFO and financial modeler. You test business viability "
-            "through hard unit economics, burn rate modeling, and realistic customer acquisition economics. "
-            "You clearly distinguish verified founder budget constraints, modeled estimates, and key financial risks."
+            "You are a pragmatic venture CFO and financial modeler. You calculate hard unit economics, "
+            "burn rate modeling, and realistic customer acquisition economics. You provide concise, "
+            "direct calculations in clean JSON without conversational chatter."
         ),
         llm=llm,
         verbose=False,
         allow_delegation=False,
+        max_iter=3,
     )

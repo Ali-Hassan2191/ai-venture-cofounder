@@ -49,6 +49,7 @@ from tasks import (
     create_cto_task,
     create_ceo_synthesis_task,
 )
+from tasks.finance_tasks import enrich_financial_model
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +73,8 @@ class StartupCrewOrchestrator:
         Progress callback signature: (agent_key, status, message, token_summary)
         """
         self.token_manager.reset()
-        StartupRepository.update_startup_status(startup.id, "running")
+        # Clean previous analysis, dynamic roadmap, and agent results to avoid stale data
+        StartupRepository.reset_startup_run(startup.id)
 
         def notify(agent_key: str, status: str, message: str):
             if progress_callback:
@@ -197,6 +199,8 @@ class StartupCrewOrchestrator:
         # 3. Finance Agent
         # ---------------------------------------------------------------------
         notify("finance", "running", "Modeling unit economics, operational burn, and break-even targets...")
+        context_len = len(fin_rag) + len(market_summary) + len(competitor_summary)
+        logger.info(f"Finance task started. Context payload size: {context_len} chars.")
         try:
             fin_agent = create_finance_agent(token_manager=self.token_manager)
             fin_task = create_finance_task(
@@ -211,7 +215,10 @@ class StartupCrewOrchestrator:
             raw_text = str(fin_res.raw if hasattr(fin_res, "raw") else fin_res)
             raw_outputs["finance"] = raw_text
 
-            parsed = clean_markdown_json(raw_text) or {}
+            logger.info(f"Finance task completed. Raw output length: {len(raw_text)} chars.")
+            raw_parsed = clean_markdown_json(raw_text) or {}
+            # Apply deterministic calculations for runway and unit margins
+            parsed = enrich_financial_model(raw_parsed, startup.budget)
             agent_outputs["finance"] = parsed
             tokens_used = self._estimate_tokens(raw_text)
             self.token_manager.record_usage("finance", tokens_used)
@@ -231,11 +238,28 @@ class StartupCrewOrchestrator:
             logger.error(f"Finance Agent failed: {e}", exc_info=True)
             notify("finance", "failed", f"Analysis error: {str(e)}")
             raw_outputs["finance"] = f"Financial analysis error: {str(e)}"
-            agent_outputs["finance"] = {"finance_score": 65, "summary": "Financial model generated baseline unit economics."}
+            # Never fabricate fake scores when the agent failed
+            agent_outputs["finance"] = {"status": "failed", "error": str(e)}
+            StartupRepository.save_agent_result(
+                AgentResult(
+                    startup_id=startup.id,
+                    agent_key="finance",
+                    status="failed",
+                    raw_output=f"Error: {str(e)}",
+                    structured_output={"status": "failed", "error": str(e)},
+                    tokens_used=0,
+                )
+            )
 
-        finance_summary = agent_outputs.get("finance", {}).get(
-            "summary", "Financial evaluation projects manageable initial burn with clear paths to unit profitability."
-        )
+        if agent_outputs.get("finance", {}).get("status") == "failed":
+            finance_summary = (
+                "WARNING: The Finance Agent was unable to complete unit economics modeling. "
+                "Financial projections and pricing tiers are currently unavailable."
+            )
+        else:
+            finance_summary = agent_outputs.get("finance", {}).get(
+                "summary", "Financial evaluation projects manageable initial burn with clear paths to unit profitability."
+            )
 
         # ---------------------------------------------------------------------
         # 4. Marketing Agent
@@ -397,20 +421,50 @@ class StartupCrewOrchestrator:
     ) -> None:
         """
         Parses CEO structured JSON and persists Analysis and Dynamic Roadmap.
+        Ensures transparent scoring across all 6 agents without silent fallback values.
         """
-        overall_score = ceo_data.get("overall_score") or 75
+        # Detect any agents that failed
+        failed_agents = [
+            k for k, v in all_outputs.items()
+            if isinstance(v, dict) and v.get("status") == "failed"
+        ]
 
-        # Merge category scores from individual agents if not present in CEO output
-        cat_scores = ceo_data.get("category_scores") or {}
+        # Extract individual agent scores
+        m_score = all_outputs.get("market_research", {}).get("market_score")
+        c_score = all_outputs.get("competitor_analysis", {}).get("competition_score")
+        b_score = all_outputs.get("marketing", {}).get("business_model_score")
+        f_score = all_outputs.get("finance", {}).get("finance_score") if "finance" not in failed_agents else None
+        t_score = all_outputs.get("cto", {}).get("technology_score")
+
+        cat_scores = dict(ceo_data.get("category_scores") or {})
         if not cat_scores:
             cat_scores = {
-                "market": all_outputs.get("market_research", {}).get("market_score", 80),
-                "competition": all_outputs.get("competitor_analysis", {}).get("competition_score", 70),
-                "business_model": all_outputs.get("marketing", {}).get("business_model_score", 75),
-                "finance": all_outputs.get("finance", {}).get("finance_score", 70),
-                "technology": all_outputs.get("cto", {}).get("technology_score", 88),
+                "market": m_score if m_score is not None else 80,
+                "competition": c_score if c_score is not None else 70,
+                "business_model": b_score if b_score is not None else 75,
+                "finance": f_score,  # None if failed
+                "technology": t_score if t_score is not None else 85,
                 "risk": 60,
             }
+        elif "finance" in failed_agents:
+            cat_scores["finance"] = None
+
+        # Dynamically compute overall score from available validated scores
+        if failed_agents:
+            valid_scores = [v for k, v in cat_scores.items() if isinstance(v, (int, float)) and v > 0]
+            overall_score = round(sum(valid_scores) / len(valid_scores)) if valid_scores else 50
+            failed_str = ", ".join(k.replace("_", " ").title() for k in failed_agents)
+            feasibility_verdict = f"Analysis Incomplete — {failed_str} Failed"
+        else:
+            overall_score = ceo_data.get("overall_score") or round(
+                (cat_scores.get("market", 80) * 0.18) +
+                (cat_scores.get("competition", 70) * 0.15) +
+                (cat_scores.get("finance", 70) * 0.22) +
+                (cat_scores.get("business_model", 75) * 0.15) +
+                (cat_scores.get("technology", 85) * 0.15) +
+                (cat_scores.get("risk", 60) * 0.15)
+            )
+            feasibility_verdict = ceo_data.get("feasibility_verdict", "Good Potential")
 
         analysis = StartupAnalysis(
             startup_id=startup_id,

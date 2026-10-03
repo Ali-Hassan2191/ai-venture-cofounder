@@ -159,3 +159,20 @@ def render_html(html_str: str) -> None:
     else:
         st.markdown(cleaned, unsafe_allow_html=True)
 
+
+def get_width_kwargs(stretch: bool = True) -> dict:
+    """
+    Returns compatibility kwargs for Streamlit width.
+    Uses width='stretch' on newer Streamlit versions (1.65+) to eliminate deprecation warnings,
+    and falls back to use_container_width on older Streamlit versions.
+    """
+    import inspect
+    import streamlit as st
+    try:
+        sig = inspect.signature(st.plotly_chart)
+        if "width" in sig.parameters:
+            return {"width": "stretch" if stretch else "content"}
+    except Exception:
+        pass
+    return {"use_container_width": stretch}
+

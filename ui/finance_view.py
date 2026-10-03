@@ -34,6 +34,12 @@ def render_finance_view(startup: Optional[Startup], agent_results: Dict[str, Age
         return
 
     fin_res = agent_results.get("finance")
+    if fin_res and fin_res.status == "failed":
+        err_msg = fin_res.structured_output.get("error", "Unit economics and financial modeling could not be completed.") if isinstance(fin_res.structured_output, dict) else str(fin_res.raw_output)
+        st.error(f"⚠️ **Finance Agent Error:** {err_msg}")
+        st.warning("Financial model, burn rate projections, and unit economics are currently unavailable for this venture.")
+        return
+
     data: Dict[str, Any] = fin_res.structured_output if (fin_res and fin_res.structured_output) else {}
 
     currency = data.get("currency") or startup.currency or "$"

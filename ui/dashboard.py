@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 from database.models import Startup, StartupAnalysis, DynamicRoadmap, AgentResult
 from database.repository import StartupRepository
 from utils.constants import AGENT_METADATA
-from ui.styles import render_html
+from ui.styles import render_html, get_width_kwargs
 
 
 def render_dashboard(
@@ -33,7 +33,7 @@ def render_dashboard(
             </div>
             """
         )
-        if st.button("Start Your Startup Journey →", type="primary", use_container_width=True):
+        if st.button("Start Your Startup Journey →", type="primary", **get_width_kwargs(True)):
             st.session_state["current_page"] = "Startup Idea"
             st.rerun()
         return
@@ -122,12 +122,20 @@ def render_dashboard(
         score = analysis.overall_score if analysis else 76
         verdict = analysis.feasibility_verdict if analysis else "Good Potential"
 
+        # Check if any agent failed
+        finance_failed = (agent_results.get("finance") and agent_results.get("finance").status == "failed")
+        any_failed = any(r.status == "failed" for r in agent_results.values())
+        is_incomplete = any_failed or ("Incomplete" in verdict) or ("Failed" in verdict)
+
+        gauge_color = "#F59E0B" if is_incomplete else "#10B981"
+        verdict_color = "#EF4444" if is_incomplete else "#10B981"
+
         # Render modern donut gauge chart
         fig = go.Figure(
             go.Pie(
-                values=[score, 100 - score],
+                values=[score, max(0, 100 - score)],
                 hole=0.75,
-                marker=dict(colors=["#10B981", "#1E293B"]),
+                marker=dict(colors=[gauge_color, "#1E293B"]),
                 textinfo="none",
                 hoverinfo="none",
             )
@@ -159,10 +167,10 @@ def render_dashboard(
                 </div>
             """
         )
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(fig, **get_width_kwargs(True), config={"displayModeBar": False})
         render_html(
             f"""
-                <div style="color: #10B981; font-size: 0.82rem; font-weight: 600; margin-top: -8px;">
+                <div style="color: {verdict_color}; font-size: 0.80rem; font-weight: 600; margin-top: -8px;">
                     ● {verdict}
                 </div>
             </div>
@@ -192,24 +200,43 @@ def render_dashboard(
     ]
 
     for col, (key, label, color) in zip(c_cols, category_configs):
-        val = cat_scores.get(key, 70)
+        val = cat_scores.get(key)
+        agent_has_failed = (agent_results.get(key) and agent_results.get(key).status == "failed")
         with col:
-            render_html(
-                f"""
-                <div class="category-metric-card">
-                    <div style="font-size: 0.72rem; color: #94A3B8; font-weight: 600; margin-bottom: 4px;">
-                        {label}
-                    </div>
-                    <div style="display: flex; align-items: baseline; justify-content: space-between;">
-                        <div>
-                            <span style="font-size: 1.3rem; font-weight: 700; color: {color};">{val}</span>
-                            <span style="font-size: 0.72rem; color: #64748B;">/100</span>
+            if val is None or agent_has_failed:
+                render_html(
+                    f"""
+                    <div class="category-metric-card" style="border-color: rgba(239, 68, 68, 0.4);">
+                        <div style="font-size: 0.72rem; color: #94A3B8; font-weight: 600; margin-bottom: 4px;">
+                            {label}
                         </div>
-                        <span style="color: {color}; font-size: 0.85rem;">↗</span>
+                        <div style="display: flex; align-items: baseline; justify-content: space-between;">
+                            <div>
+                                <span style="font-size: 1.05rem; font-weight: 700; color: #EF4444;">FAILED</span>
+                            </div>
+                            <span style="color: #EF4444; font-size: 0.75rem;">⚠️</span>
+                        </div>
+                        <div style="font-size: 0.68rem; color: #94A3B8; margin-top: 2px;">Unavailable</div>
                     </div>
-                </div>
-                """
-            )
+                    """
+                )
+            else:
+                render_html(
+                    f"""
+                    <div class="category-metric-card">
+                        <div style="font-size: 0.72rem; color: #94A3B8; font-weight: 600; margin-bottom: 4px;">
+                            {label}
+                        </div>
+                        <div style="display: flex; align-items: baseline; justify-content: space-between;">
+                            <div>
+                                <span style="font-size: 1.3rem; font-weight: 700; color: {color};">{val}</span>
+                                <span style="font-size: 0.72rem; color: #64748B;">/100</span>
+                            </div>
+                            <span style="color: {color}; font-size: 0.85rem;">↗</span>
+                        </div>
+                    </div>
+                    """
+                )
 
     # 4. AI Founding Team Row (6 Agents)
     render_html("<div style='height: 20px;'></div>")
@@ -263,15 +290,16 @@ def render_dashboard(
     # 5. Quick Navigation Action Bar
     render_html("<div style='height: 12px;'></div>")
     q_col1, q_col2, q_col3 = st.columns(3)
+    btn_kwargs = get_width_kwargs(True)
     with q_col1:
-        if st.button("📋 View Complete Blueprint", use_container_width=True):
+        if st.button("📋 View Complete Blueprint", **btn_kwargs):
             st.session_state["current_page"] = "Blueprint"
             st.rerun()
     with q_col2:
-        if st.button("🗓️ Inspect Execution Plan", use_container_width=True):
+        if st.button("🗓️ Inspect Execution Plan", **btn_kwargs):
             st.session_state["current_page"] = "Execution Plan"
             st.rerun()
     with q_col3:
-        if st.button("💬 Discuss with AI Co-Founder", use_container_width=True):
+        if st.button("💬 Discuss with AI Co-Founder", **btn_kwargs):
             st.session_state["current_page"] = "Chat"
             st.rerun()
