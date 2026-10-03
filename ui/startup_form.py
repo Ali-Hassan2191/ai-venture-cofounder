@@ -1,14 +1,16 @@
 """
-Startup Onboarding Form Screen.
-Recreates the onboarding journey screen from the UI reference image.
-Triggers live multi-agent CrewAI execution upon submission.
+Startup Onboarding Form and Creation Flow.
+Provides the input form to launch the multi-agent co-founder analysis.
 """
-from typing import Optional
 import streamlit as st
-from database.models import Startup
 from services.startup_service import StartupService
 from services.analysis_service import AnalysisService
-from config.llm_config import global_token_manager, get_llm_config
+from utils.constants import (
+    COMMON_STARTUP_CATEGORIES,
+    COMMON_COUNTRIES,
+    FOUNDER_EXPERIENCE_LEVELS,
+)
+from ui.styles import render_html
 
 
 def render_startup_form():
@@ -19,23 +21,20 @@ def render_startup_form():
 
     # Left Column: Hero Branding
     with col1:
-        st.markdown(
+        render_html(
             """
             <div class="welcome-hero" style="padding: 40px 24px; text-align: center; border: 1px solid #23304B; height: 100%;">
                 <div style="background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, rgba(11, 15, 25, 0) 70%);
                             padding: 20px; display: inline-block; border-radius: 50%;">
                     <div style="font-size: 3.5rem;">🚀</div>
                 </div>
-
                 <h1 style="color: #FFFFFF; font-size: 2rem; font-weight: 800; margin: 16px 0 8px 0; line-height: 1.2;">
                     Turn Your Idea Into<br><span style="color: #6366F1;">A Real Startup</span>
                 </h1>
-
                 <p style="color: #94A3B8; font-size: 0.95rem; line-height: 1.5; max-width: 380px; margin: 0 auto 30px auto;">
                     Get AI-powered research, financial modeling, tech architecture, and execution
                     support from your dedicated 6-agent co-founder team.
                 </p>
-
                 <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 20px;">
                     <div style="background: #111726; border: 1px solid #1E293B; border-radius: 10px; padding: 12px 6px;">
                         <div style="font-size: 1.4rem;">🔍</div>
@@ -55,13 +54,12 @@ def render_startup_form():
                     </div>
                 </div>
             </div>
-            """,
-            unsafe_allow_html=True,
+            """
         )
 
     # Right Column: Input Form
     with col2:
-        st.markdown(
+        render_html(
             """
             <div style="margin-bottom: 20px;">
                 <h2 style="color: #FFFFFF; font-size: 1.5rem; font-weight: 700; margin: 0;">
@@ -71,8 +69,7 @@ def render_startup_form():
                     Tell us about your venture concept and let our AI co-founder team analyze it across every dimension.
                 </p>
             </div>
-            """,
-            unsafe_allow_html=True,
+            """
         )
 
         with st.form("startup_onboarding_form"):
@@ -88,65 +85,69 @@ def render_startup_form():
                 value="AI-powered hyper-local food delivery platform designed specifically for university students, optimizing batch delivery routes and low-cost meal subscriptions.",
                 placeholder="Describe the problem, solution, and core offering...",
                 height=110,
-                help="A clear summary of the customer problem and how your solution solves it.",
+                help="Clearly specify what your startup does, who it helps, and how it delivers value.",
             )
 
-            f_col1, f_col2 = st.columns(2)
-            with f_col1:
-                country = st.text_input(
-                    "Operating Country / Region *",
-                    value="United States",
-                    placeholder="e.g. United States, United Kingdom, Pakistan, Germany",
-                )
-            with f_col2:
-                target_customer = st.text_input(
-                    "Target Customer *",
-                    value="University Students (18-25 years)",
-                    placeholder="e.g. B2B Sales Teams, University Students, Freelancers",
+            c1, c2 = st.columns(2)
+            with c1:
+                country = st.selectbox(
+                    "Operating Country/Region *",
+                    options=COMMON_COUNTRIES,
+                    index=COMMON_COUNTRIES.index("United States") if "United States" in COMMON_COUNTRIES else 0,
+                    help="Country where customer acquisition and legal operations begin.",
                 )
 
-            b_col1, b_col2 = st.columns(2)
-            with b_col1:
+            with c2:
+                target_market = st.selectbox(
+                    "Primary Industry Category *",
+                    options=COMMON_STARTUP_CATEGORIES,
+                    index=0,
+                    help="The primary business category or sector.",
+                )
+
+            target_customer = st.text_input(
+                "Target Customer Persona *",
+                value="University Students (18-25) & Campus Dining Services",
+                placeholder="e.g., University students, small clinic doctors, independent restaurants",
+                help="Who is the initial paying customer or user base?",
+            )
+
+            c3, c4 = st.columns(2)
+            with c3:
                 budget = st.number_input(
-                    "Initial Capital Budget ($) *",
+                    "Available Starting Capital ($ USD) *",
                     min_value=500.0,
                     max_value=10_000_000.0,
                     value=25000.0,
-                    step=1000.0,
-                    format="%.0f",
-                )
-            with b_col2:
-                founder_experience = st.selectbox(
-                    "Founder Experience *",
-                    options=["Beginner", "Intermediate", "Experienced Serial Founder", "Domain Expert"],
-                    index=0,
+                    step=2500.0,
+                    help="Your real capital budget for development, legal setup, and initial traction.",
                 )
 
-            additional_context = st.text_input(
-                "Additional Strategic Context (Optional)",
-                value="Access to 3 large campus student networks and 15 partner food vendors willing to pilot.",
-                placeholder="e.g., Partnerships, unfair advantages, existing domain connections...",
+            with c4:
+                founder_experience = st.selectbox(
+                    "Founder Background & Experience",
+                    options=FOUNDER_EXPERIENCE_LEVELS,
+                    index=1,
+                    help="Helps the CEO calibrate roadmap sprints to your engineering & business capability.",
+                )
+
+            additional_context = st.text_area(
+                "Special Strategic Constraints or Unfair Advantages (Optional)",
+                value="Access to 3 large campus student union partnerships and 12 local restaurants already signed LOIs.",
+                placeholder="Any existing distribution advantages, pre-launch signups, regulatory moats...",
+                height=70,
             )
 
-            st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+            render_html("<div style='height: 10px;'></div>")
             submit_btn = st.form_submit_button("🚀 Build My Startup →", type="primary", use_container_width=True)
 
+        # 2. Form Submission Handling
         if submit_btn:
-            # 1. Validate credentials check
-            cfg = get_llm_config()
-            if not cfg.get("api_key"):
-                st.error(
-                    "⚠️ Groq API key is missing. Please configure `GROQ_API_KEY` in `.streamlit/secrets.toml` "
-                    "or in your Streamlit Cloud App Secrets settings."
-                )
-                return
-
-            # 2. Validate inputs & persist startup
             startup, errors = StartupService.create_startup(
                 name=name,
                 idea=idea,
                 country=country,
-                target_market=f"{country} - {target_customer}",
+                target_market=target_market,
                 target_customer=target_customer,
                 budget=budget,
                 currency="$",

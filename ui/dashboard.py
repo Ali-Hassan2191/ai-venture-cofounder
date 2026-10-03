@@ -8,6 +8,7 @@ import plotly.graph_objects as go
 from database.models import Startup, StartupAnalysis, DynamicRoadmap, AgentResult
 from database.repository import StartupRepository
 from utils.constants import AGENT_METADATA
+from ui.styles import render_html
 
 
 def render_dashboard(
@@ -20,7 +21,7 @@ def render_dashboard(
     Renders the Overview Dashboard.
     """
     if not startup:
-        st.markdown(
+        render_html(
             """
             <div class="welcome-hero" style="text-align: center; padding: 40px 20px;">
                 <div style="font-size: 2.5rem; margin-bottom: 12px;">🚀</div>
@@ -30,8 +31,7 @@ def render_dashboard(
                     target market, and capital budget.
                 </p>
             </div>
-            """,
-            unsafe_allow_html=True,
+            """
         )
         if st.button("Start Your Startup Journey →", type="primary", use_container_width=True):
             st.session_state["current_page"] = "Startup Idea"
@@ -41,7 +41,7 @@ def render_dashboard(
     founder_name = startup.founder_name or "Founder"
 
     # 1. Welcome Greeting
-    st.markdown(
+    render_html(
         f"""
         <div style="margin-bottom: 20px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -55,8 +55,7 @@ def render_dashboard(
                 </div>
             </div>
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
     # 2. Main Startup Identity & Overall Score (2 Columns)
@@ -66,7 +65,7 @@ def render_dashboard(
         phase_label = roadmap.current_phase if roadmap else "Validation Phase"
         day_info = f"Day {roadmap.current_day} / {roadmap.total_duration_days}" if roadmap else "Planning"
 
-        st.markdown(
+        render_html(
             f"""
             <div class="welcome-hero" style="position: relative;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px;">
@@ -92,7 +91,6 @@ def render_dashboard(
                         {phase_label}
                     </div>
                 </div>
-
                 <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 20px;
                             background: rgba(11, 15, 25, 0.6); padding: 12px; border-radius: 10px; border: 1px solid #1E293B;">
                     <div>
@@ -113,8 +111,7 @@ def render_dashboard(
                     </div>
                 </div>
             </div>
-            """,
-            unsafe_allow_html=True,
+            """
         )
 
     with col2:
@@ -133,39 +130,39 @@ def render_dashboard(
         )
         fig.update_layout(
             showlegend=False,
-            margin=dict(l=0, r=0, t=0, b=0),
+            margin=dict(t=0, b=0, l=0, r=0),
             height=130,
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             annotations=[
                 dict(
-                    text=f"<span style='font-size:24px; font-weight:700; color:#FFFFFF;'>{score}</span><br><span style='font-size:11px; color:#94A3B8;'>/100</span>",
+                    text=f"<b>{score}</b><br><span style='font-size:10px;color:#94A3B8;'>/100</span>",
                     x=0.5,
                     y=0.5,
+                    font_size=20,
+                    font_color="#FFFFFF",
                     font=dict(family="sans serif"),
                     showarrow=False,
                 )
             ],
         )
 
-        st.markdown(
+        render_html(
             f"""
             <div class="welcome-hero" style="text-align: center; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center;">
                 <div style="color: #94A3B8; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; margin-bottom: 6px;">
                     Startup Score
                 </div>
-            """,
-            unsafe_allow_html=True,
+            """
         )
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-        st.markdown(
+        render_html(
             f"""
                 <div style="color: #10B981; font-size: 0.82rem; font-weight: 600; margin-top: -8px;">
                     ● {verdict}
                 </div>
             </div>
-            """,
-            unsafe_allow_html=True,
+            """
         )
 
     # 3. Category Score Cards (6 Columns)
@@ -178,7 +175,7 @@ def render_dashboard(
         "risk": 59,
     }
 
-    st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+    render_html("<div style='height: 10px;'></div>")
     c_cols = st.columns(6)
 
     category_configs = [
@@ -193,7 +190,7 @@ def render_dashboard(
     for col, (key, label, color) in zip(c_cols, category_configs):
         val = cat_scores.get(key, 70)
         with col:
-            st.markdown(
+            render_html(
                 f"""
                 <div class="category-metric-card">
                     <div style="font-size: 0.72rem; color: #94A3B8; font-weight: 600; margin-bottom: 4px;">
@@ -207,13 +204,12 @@ def render_dashboard(
                         <span style="color: {color}; font-size: 0.85rem;">↗</span>
                     </div>
                 </div>
-                """,
-                unsafe_allow_html=True,
+                """
             )
 
     # 4. AI Founding Team Row (6 Agents)
-    st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
-    st.markdown(
+    render_html("<div style='height: 20px;'></div>")
+    render_html(
         """
         <div style="margin-bottom: 12px;">
             <div style="font-size: 1.05rem; font-weight: 700; color: #FFFFFF;">
@@ -223,8 +219,7 @@ def render_dashboard(
                 Your 6 specialized AI agents analyzing and building your venture.
             </div>
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
     agent_cols = st.columns(6)
@@ -239,7 +234,7 @@ def render_dashboard(
         status_label = status.capitalize()
 
         with col:
-            st.markdown(
+            render_html(
                 f"""
                 <div class="venture-card" style="text-align: center; padding: 16px 10px;">
                     <div style="background: rgba(99, 102, 241, 0.1); width: 44px; height: 44px;
@@ -258,12 +253,11 @@ def render_dashboard(
                         ● {status_label}
                     </span>
                 </div>
-                """,
-                unsafe_allow_html=True,
+                """
             )
 
     # 5. Quick Navigation Action Bar
-    st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
+    render_html("<div style='height: 12px;'></div>")
     q_col1, q_col2, q_col3 = st.columns(3)
     with q_col1:
         if st.button("📋 View Complete Blueprint", use_container_width=True):

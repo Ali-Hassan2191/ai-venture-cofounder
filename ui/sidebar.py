@@ -8,6 +8,7 @@ from utils.constants import NAV_ITEMS, APP_NAME
 from database.models import Startup
 from config.llm_config import global_token_manager, get_llm_config
 from rag.faiss_manager import faiss_manager
+from ui.styles import render_html
 
 
 def render_sidebar(startups: List[Startup], active_startup: Optional[Startup]) -> str:
@@ -16,7 +17,7 @@ def render_sidebar(startups: List[Startup], active_startup: Optional[Startup]) -
     """
     with st.sidebar:
         # 1. Branding Header
-        st.markdown(
+        render_html(
             f"""
             <div style="display: flex; align-items: center; gap: 12px; padding: 12px 6px 20px 6px;">
                 <div style="background: linear-gradient(135deg, #6366F1, #3B82F6);
@@ -34,8 +35,7 @@ def render_sidebar(startups: List[Startup], active_startup: Optional[Startup]) -
                     </div>
                 </div>
             </div>
-            """,
-            unsafe_allow_html=True,
+            """
         )
 
         # 2. Startup Selector (if startups exist)
@@ -59,7 +59,7 @@ def render_sidebar(startups: List[Startup], active_startup: Optional[Startup]) -
                 st.session_state["selected_startup_id"] = selected_id
                 st.rerun()
 
-        st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+        render_html("<div style='height: 8px;'></div>")
 
         # 3. Navigation List
         if "current_page" not in st.session_state:
@@ -78,7 +78,7 @@ def render_sidebar(startups: List[Startup], active_startup: Optional[Startup]) -
         )
         st.session_state["current_page"] = page
 
-        st.markdown("<div style='height: 24px;'></div>", unsafe_allow_html=True)
+        render_html("<div style='height: 24px;'></div>")
 
         # 4. Token Budget Status (Global 7,500 token tracker)
         budget_summary = global_token_manager.get_summary()
@@ -86,7 +86,7 @@ def render_sidebar(startups: List[Startup], active_startup: Optional[Startup]) -
         total = budget_summary["max_total_tokens"]
         pct = budget_summary["usage_percent"]
 
-        st.markdown(
+        render_html(
             f"""
             <div style="background: #111726; border: 1px solid #1E293B; border-radius: 8px; padding: 10px; margin-bottom: 16px;">
                 <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: #94A3B8; margin-bottom: 4px;">
@@ -97,13 +97,12 @@ def render_sidebar(startups: List[Startup], active_startup: Optional[Startup]) -
                     <div style="background: #6366F1; height: 100%; width: {min(100, pct)}%;"></div>
                 </div>
             </div>
-            """,
-            unsafe_allow_html=True,
+            """
         )
 
         # 5. Founder Profile at Sidebar Footer
         founder_name = active_startup.founder_name if (active_startup and active_startup.founder_name) else "Ahmed Khan"
-        st.markdown(
+        render_html(
             f"""
             <div style="margin-top: auto; padding-top: 16px; border-top: 1px solid #1E293B; display: flex; align-items: center; gap: 10px;">
                 <div style="background: #3B82F6; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; color: #FFFFFF;">
@@ -118,8 +117,7 @@ def render_sidebar(startups: List[Startup], active_startup: Optional[Startup]) -
                     </div>
                 </div>
             </div>
-            """,
-            unsafe_allow_html=True,
+            """
         )
 
         return page

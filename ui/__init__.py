@@ -2,7 +2,7 @@
 UI package initialization.
 Exports all UI render views and theme styling.
 """
-from ui.styles import apply_theme
+from ui.styles import apply_theme, render_html
 from ui.sidebar import render_sidebar
 from ui.dashboard import render_dashboard
 from ui.startup_form import render_startup_form
@@ -18,6 +18,7 @@ from ui.reports_view import render_reports_view
 
 __all__ = [
     "apply_theme",
+    "render_html",
     "render_sidebar",
     "render_dashboard",
     "render_startup_form",

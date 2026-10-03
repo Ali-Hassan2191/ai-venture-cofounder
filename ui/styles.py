@@ -144,3 +144,18 @@ def apply_theme():
     """Applies the dark aesthetic styling via streamlit markdown."""
     import streamlit as st
     st.markdown(DARK_THEME_CSS, unsafe_allow_html=True)
+
+
+def render_html(html_str: str) -> None:
+    """
+    Renders raw HTML safely in Streamlit without Markdown interpreting
+    blank lines or indented tags as code blocks (<pre><code>).
+    """
+    import textwrap
+    import streamlit as st
+    cleaned = textwrap.dedent(html_str).strip()
+    if hasattr(st, "html"):
+        st.html(cleaned)
+    else:
+        st.markdown(cleaned, unsafe_allow_html=True)
+
