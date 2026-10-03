@@ -101,3 +101,43 @@ FAISS_INDEX_FILE = "data/faiss_index/index.faiss"
 FAISS_CONFIG_FILE = "data/faiss_index/config.json"
 FAISS_METADATA_FILE = "data/faiss_index/metadata.json"
 FAISS_CHUNKS_FILE = "data/faiss_index/chunks.json"
+
+# Startup Form Options
+COMMON_COUNTRIES = [
+    "United States",
+    "United Kingdom",
+    "Pakistan",
+    "India",
+    "Canada",
+    "Germany",
+    "France",
+    "Australia",
+    "Singapore",
+    "United Arab Emirates",
+    "Saudi Arabia",
+    "Brazil",
+    "Global",
+]
+
+COMMON_STARTUP_CATEGORIES = [
+    "Artificial Intelligence & Machine Learning",
+    "B2B SaaS & Enterprise Software",
+    "FinTech & Payments",
+    "HealthTech & BioTech",
+    "EdTech & Future of Work",
+    "E-Commerce & Quick Commerce",
+    "AgriTech & Food Systems",
+    "ClimateTech & Clean Energy",
+    "Logistics & Supply Chain",
+    "Cybersecurity & Data Infrastructure",
+    "Consumer Tech & Social",
+    "Other",
+]
+
+FOUNDER_EXPERIENCE_LEVELS = [
+    "Beginner",
+    "Intermediate",
+    "Experienced Serial Founder",
+    "Domain Expert",
+]
+
