@@ -186,13 +186,17 @@ def render_settings_view():
     st.markdown("---")
     st.markdown("### Vector RAG Status (FAISS)")
     status = faiss_manager.get_status()
-    f1, f2, f3 = st.columns(3)
+    f1, f2, f3, f4 = st.columns(4)
     with f1:
         st.metric("Index Loaded", "✅ Active" if status["is_loaded"] else "⚠️ Offline")
     with f2:
         st.metric("Vector Dimension", status["dimension"])
     with f3:
-        st.metric("Total Indexed Records", status["metadata_count"])
+        st.metric("Indexed Chunks", f"{status['total_vectors']:,}")
+    with f4:
+        st.metric("Chunks Text", "✅ Loaded" if status.get("has_chunks") else "⚠️ Metadata Only")
+
+    st.caption(f"Embedding Architecture: `{status.get('embedding_model', 'all-MiniLM-L6-v2')}` | Index Path: `{status.get('index_path')}`")
 
     if not status["is_loaded"]:
         st.warning(f"FAISS Status: {status['load_error']}")

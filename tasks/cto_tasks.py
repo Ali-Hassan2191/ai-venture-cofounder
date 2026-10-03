@@ -10,10 +10,17 @@ def create_cto_task(
     startup_data: Dict[str, Any],
     market_summary: str = "",
     budget: float = 0.0,
+    rag_context: str = "",
 ) -> Task:
     """
     Creates the CrewAI task for technical architecture and software planning.
     """
+    context_section = (
+        f"\nEmpirical Technical Architecture & Engineering Standards (from Knowledge Base):\n{rag_context}\n"
+        if rag_context
+        else ""
+    )
+
     description = f"""
 Architect the software systems, core feature scope, and technology roadmap for:
 
@@ -22,6 +29,7 @@ Idea: {startup_data.get('idea', '')}
 Available Capital: {startup_data.get('currency', '$')}{budget:,}
 Founder Experience: {startup_data.get('founder_experience', 'Beginner')}
 Market Context: {market_summary}
+{context_section}
 
 Architect:
 1. Recommended Technology Stack (Frontend, Backend, Database, AI Components, Infrastructure)

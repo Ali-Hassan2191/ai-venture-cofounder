@@ -11,10 +11,17 @@ def create_marketing_task(
     market_summary: str = "",
     competitor_summary: str = "",
     finance_summary: str = "",
+    rag_context: str = "",
 ) -> Task:
     """
     Creates the CrewAI task for Go-To-Market strategy.
     """
+    context_section = (
+        f"\nEmpirical GTM & Customer Acquisition Benchmarks (from Knowledge Base):\n{rag_context}\n"
+        if rag_context
+        else ""
+    )
+
     description = f"""
 Formulate a focused Go-To-Market (GTM) and customer acquisition strategy for:
 
@@ -26,6 +33,7 @@ Budget: {startup_data.get('currency', '$')}{startup_data.get('budget', 0):,}
 Market Research Context: {market_summary}
 Competitive Landscape: {competitor_summary}
 Financial Constraints: {finance_summary}
+{context_section}
 
 Provide:
 1. Target Audience Strategy & Positioning Message

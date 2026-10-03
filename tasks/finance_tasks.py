@@ -10,12 +10,19 @@ def create_finance_task(
     startup_data: Dict[str, Any],
     market_summary: str = "",
     competitor_summary: str = "",
+    rag_context: str = "",
 ) -> Task:
     """
     Creates the CrewAI task for financial evaluation.
     """
     currency = startup_data.get("currency", "$")
     budget = startup_data.get("budget", 0)
+
+    context_section = (
+        f"\nEmpirical Financial & Unit Economics Benchmarks (from Knowledge Base):\n{rag_context}\n"
+        if rag_context
+        else ""
+    )
 
     description = f"""
 Build a financial model and unit economics evaluation for:
@@ -26,6 +33,7 @@ Country/Region: {startup_data.get('country', 'Global')}
 Available Budget: {currency}{budget:,}
 Market Insights: {market_summary}
 Competitive Pricing Context: {competitor_summary}
+{context_section}
 
 Calculate and evaluate:
 1. Initial Capital / Investment required for initial product release

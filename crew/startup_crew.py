@@ -77,9 +77,26 @@ class StartupCrewOrchestrator:
             "additional_context": startup.additional_context,
         }
 
-        # 0. Semantic Knowledge Retrieval
-        rag_query = f"{startup.name} {startup.idea} {startup.target_market} {startup.country}"
-        rag_context = knowledge_retriever.get_formatted_context(rag_query, top_k=3)
+        # 0. Semantic Knowledge Retrieval from Pre-Built FAISS Index
+        base_query = f"{startup.name} {startup.idea} {startup.target_market} {startup.country}"
+        market_rag = knowledge_retriever.get_formatted_context(
+            f"{base_query} market size customer demand industry benchmarks", top_k=2
+        )
+        comp_rag = knowledge_retriever.get_formatted_context(
+            f"{base_query} competitor positioning defensible moats industry alternatives", top_k=2
+        )
+        fin_rag = knowledge_retriever.get_formatted_context(
+            f"{base_query} unit economics SaaS margins pricing models CAC LTV financial benchmarks", top_k=2
+        )
+        mkt_rag = knowledge_retriever.get_formatted_context(
+            f"{base_query} GTM go-to-market distribution channels viral loops customer retention", top_k=2
+        )
+        cto_rag = knowledge_retriever.get_formatted_context(
+            f"{base_query} system architecture tech stack scalability engineering best practices", top_k=2
+        )
+        ceo_rag = knowledge_retriever.get_formatted_context(
+            f"{base_query} startup survival failure modes venture capital evaluation", top_k=2
+        )
 
         agent_outputs: Dict[str, Dict[str, Any]] = {}
         raw_outputs: Dict[str, str] = {}
@@ -90,7 +107,7 @@ class StartupCrewOrchestrator:
         notify("market_research", "running", "Analyzing market size, customer pain points, and local demand...")
         try:
             market_agent = create_market_research_agent(token_manager=self.token_manager)
-            market_task = create_market_research_task(market_agent, startup_dict, rag_context=rag_context)
+            market_task = create_market_research_task(market_agent, startup_dict, rag_context=market_rag)
             market_crew = Crew(agents=[market_agent], tasks=[market_task], process=Process.sequential, verbose=False)
             market_res = market_crew.kickoff()
             raw_text = str(market_res.raw if hasattr(market_res, "raw") else market_res)
@@ -129,7 +146,7 @@ class StartupCrewOrchestrator:
         try:
             comp_agent = create_competitor_agent(token_manager=self.token_manager)
             comp_task = create_competitor_task(
-                comp_agent, startup_dict, market_summary=market_summary, rag_context=rag_context
+                comp_agent, startup_dict, market_summary=market_summary, rag_context=comp_rag
             )
             comp_crew = Crew(agents=[comp_agent], tasks=[comp_task], process=Process.sequential, verbose=False)
             comp_res = comp_crew.kickoff()
@@ -173,6 +190,7 @@ class StartupCrewOrchestrator:
                 startup_dict,
                 market_summary=market_summary,
                 competitor_summary=competitor_summary,
+                rag_context=fin_rag,
             )
             fin_crew = Crew(agents=[fin_agent], tasks=[fin_task], process=Process.sequential, verbose=False)
             fin_res = fin_crew.kickoff()
@@ -217,6 +235,7 @@ class StartupCrewOrchestrator:
                 market_summary=market_summary,
                 competitor_summary=competitor_summary,
                 finance_summary=finance_summary,
+                rag_context=mkt_rag,
             )
             mkt_crew = Crew(agents=[mkt_agent], tasks=[mkt_task], process=Process.sequential, verbose=False)
             mkt_res = mkt_crew.kickoff()
@@ -260,6 +279,7 @@ class StartupCrewOrchestrator:
                 startup_dict,
                 market_summary=market_summary,
                 budget=startup.budget,
+                rag_context=cto_rag,
             )
             cto_crew = Crew(agents=[cto_agent], tasks=[cto_task], process=Process.sequential, verbose=False)
             cto_res = cto_crew.kickoff()
@@ -306,6 +326,7 @@ class StartupCrewOrchestrator:
                 finance_summary=finance_summary,
                 marketing_summary=marketing_summary,
                 cto_summary=cto_summary,
+                rag_context=ceo_rag,
             )
             ceo_crew = Crew(agents=[ceo_agent], tasks=[ceo_task], process=Process.sequential, verbose=False)
             ceo_res = ceo_crew.kickoff()

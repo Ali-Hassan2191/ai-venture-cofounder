@@ -1,8 +1,10 @@
 {
-  "dimension": 384,
-  "metric": "cosine",
-  "index_type": "IndexFlatIP",
   "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
-  "total_documents": 6,
-  "description": "Foundational startup benchmarks, unit economics, and risk mitigation knowledge base."
+  "embedding_dim": 384,
+  "normalize_embeddings": true,
+  "index_type": "IndexFlatIP",
+  "chunk_size": 1000,
+  "chunk_overlap": 200,
+  "num_chunks": 3665,
+  "num_documents": 42
 }

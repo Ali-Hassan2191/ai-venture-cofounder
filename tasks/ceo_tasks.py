@@ -15,10 +15,17 @@ def create_ceo_synthesis_task(
     finance_summary: str,
     marketing_summary: str,
     cto_summary: str,
+    rag_context: str = "",
 ) -> Task:
     """
     Creates the CrewAI task for final CEO synthesis and startup blueprint generation.
     """
+    context_section = (
+        f"\nEmpirical Startup Survival & Venture Risk Benchmarks (from Knowledge Base):\n{rag_context}\n"
+        if rag_context
+        else ""
+    )
+
     description = f"""
 As the Lead Co-Founder and CEO, evaluate all specialist intelligence and deliver
 the definitive venture assessment, scoring, multi-dimensional risk matrix, and a DYNAMIC EXECUTION ROADMAP.
@@ -39,7 +46,7 @@ Executive Summaries from Specialists:
 3. Financial Unit Economics: {finance_summary}
 4. Growth & Go-To-Market: {marketing_summary}
 5. CTO Technical Architecture: {cto_summary}
-
+{context_section}
 CRITICAL ROADMAP REQUIREMENT:
 The execution roadmap MUST NOT have a fixed duration.
 DO NOT hardcode a 30-day roadmap.
