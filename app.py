@@ -66,7 +66,7 @@ def seed_default_venture_if_empty():
         target_customer="University Students & Campus Vendors",
         budget=25000.0,
         currency="$",
-        founder_name="Ahmed Khan",
+        founder_name="Ali Hassan",
         founder_experience="Intermediate",
         additional_context="Access to 3 large campus student networks and 15 partner food vendors.",
         status="completed",
